@@ -29,6 +29,13 @@ from salary_pipeline.pipelines.commission_summary import (
     load_month_config,
 )
 from salary_pipeline.pipelines.hub_formula_engine import HubFormulaEngine
+from salary_pipeline.pipelines.commission_summary_formatting import (
+    apply_commission_summary_highlighting,
+)
+from salary_pipeline.pipelines.non_frontline_columns import (
+    apply_non_frontline_columns,
+    bootstrap_non_frontline_physical_columns,
+)
 from salary_pipeline.pipelines.performance_overlay import (
     clear_bootstrap_for_overlay,
     overlay_module_metrics,
@@ -45,6 +52,12 @@ from salary_pipeline.pipelines.run_cache import (
 logger = logging.getLogger(__name__)
 
 OverlayRunner = Callable[[dict[str, Any]], Any]
+
+
+def _report_progress(ctx: dict[str, Any], stage_key: str, label: str) -> None:
+    cb = ctx.get("progress_callback")
+    if cb is not None:
+        cb(stage_key, label)
 
 # Ordered overlay registry: key → module factory (instantiated per run)
 PERFORMANCE_OVERLAY_REGISTRY: list[tuple[str, OverlayRunner]] = [
@@ -64,11 +77,18 @@ class SalesPipeline:
     2. CommissionSummaryBuilder 聚合 → 提成汇总（系统生成，非导入）
     """
 
-    def __init__(self, config_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        config_dir: Path | None = None,
+        month_config: dict[str, Any] | None = None,
+    ) -> None:
         from salary_pipeline.paths import CONFIG_DIR
 
         self.config_dir = config_dir or CONFIG_DIR
-        self.month_config = load_month_config(self.config_dir)
+        if month_config is not None:
+            self.month_config = month_config
+        else:
+            self.month_config = load_month_config(self.config_dir)
         self.registry = ModuleRegistry()
         self.registry.register(SummarySkeletonModule())
         self.summary_builder = CommissionSummaryBuilder()
@@ -110,11 +130,13 @@ class SalesPipeline:
 
         if from_stage == "full":
             logger.info("Running %d commission modules", len(self.registry.modules))
+            _report_progress(ctx, "performance_sheet", "业务模块计算…")
             module_results = self.registry.run_all(ctx)
             summary = self.summary_builder.build(module_results)
             ctx["summary_skeleton"] = summary
 
             loader = build_workbook_loader(ctx)
+            _report_progress(ctx, "performance_sheet", "绩效整理表生成…")
             perf_result = PerformanceSheetModule().run(ctx)
             computed_perf = ctx.get("computed_perf_frame")
             perf_cfg = self.month_config.get("performance_sheet", {})
@@ -127,6 +149,7 @@ class SalesPipeline:
                 use_golden_perf_sheet=perf_cfg.get("use_golden_perf_sheet", True),
                 bootstrap_from_golden=hub_cfg.get("bootstrap_from_golden", True),
             )
+            _report_progress(ctx, "hub_formula", "Hub 公式回放…")
             summary = hub_calc.apply(summary)
             if perf_result.metadata.get("rows"):
                 logger.info(
@@ -141,6 +164,7 @@ class SalesPipeline:
             write_manifest(cache_dir, fingerprint, stage="hub", artifacts=artifacts)
         else:
             cache_dir = resolve_cache_dir(self.month_config)
+            _report_progress(ctx, "load_hub", "加载 Hub 快照…")
             summary, computed_perf = load_hub_snapshot(cache_dir)
             ctx["computed_perf_frame"] = computed_perf
             logger.info(
@@ -150,7 +174,26 @@ class SalesPipeline:
                 len(computed_perf),
             )
 
+        _report_progress(ctx, "overlay", "岗位绩效 overlay…")
         summary = self._run_overlays(summary, ctx, module_results, only_keys)
+        parity_cfg = self.month_config.get("parity", {})
+        golden_raw = parity_cfg.get("golden_workbook") or self.month_config.get(
+            "workbooks", {}
+        ).get("sales")
+        golden_path = (
+            resolve_project_path(golden_raw) if golden_raw else None
+        )
+        summary = bootstrap_non_frontline_physical_columns(
+            summary,
+            golden_path,
+            sheet_name=self.month_config["outputs"].get(
+                "commission_summary_sheet", "提成汇总"
+            ),
+            header_row=int(parity_cfg.get("header_row", 2)),
+            data_start_row=int(parity_cfg.get("data_start_row", 3)),
+        )
+        summary = apply_non_frontline_columns(summary)
+        summary = self.summary_builder._align_to_template(summary)
 
         if hub_calc is not None and hub_calc.warnings:
             report_dir = resolve_project_path(
@@ -162,14 +205,17 @@ class SalesPipeline:
             logger.info("Wrote formula warnings -> %s", warn_path)
         summary = summary.reset_index(drop=True)
 
+        _report_progress(ctx, "export_preview", "写出提成汇总…")
         output_path = resolve_project_path(
             self.month_config["outputs"]["commission_summary_file"]
         )
         sheet_name = self.month_config["outputs"]["commission_summary_sheet"]
         self.summary_builder.export_excel(summary, output_path, sheet_name=sheet_name)
+        apply_commission_summary_highlighting(self.month_config, output_path)
 
         return {
             "module_results": module_results,
             "summary": summary,
             "output_path": output_path,
+            "computed_perf_frame": ctx.get("computed_perf_frame"),
         }

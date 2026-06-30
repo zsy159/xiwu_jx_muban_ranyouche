@@ -45,6 +45,7 @@ parity:
     - 职务
     - 姓名
   numeric_tolerance: 1.0e-6
+  auto_highlight: true
   # F–P：财务/流水线硬验收（CI gate）
   columns:
     - 考核量

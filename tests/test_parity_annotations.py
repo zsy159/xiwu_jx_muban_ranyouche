@@ -14,13 +14,17 @@ from salary_pipeline.calculators.sales_advisor.parity_annotations import (
     HubCellAnnotation,
     annotations_for_workbook,
     collect_hub_cell_annotations,
+    detect_topology_formula_anomalies,
+    enrich_cell_mismatches,
     load_annotation_registry,
+    lookup_mismatch_root_cause,
 )
 from salary_pipeline.pipelines.commission_summary import CommissionSummaryBuilder
 from salary_pipeline.utils.excel_format import (
     FORMULA_ANOMALY_FILL_RGB,
     add_commission_summary_annotations,
 )
+from salary_pipeline.validation.parity import CellMismatch
 
 
 class ParityAnnotationTests(unittest.TestCase):
@@ -151,6 +155,138 @@ class ParityAnnotationTests(unittest.TestCase):
         by_key = {a.key(): a for a in result}
         self.assertEqual(by_key[("测试", "权限结余绩效")].reason, "登记原因")
         self.assertEqual(by_key[("测试", "权限结余绩效")].source, "registry")
+
+    def test_topology_ref_skipped_when_hub_row_name_mismatch(self) -> None:
+        """Stale hub_excel_row must not attribute #REF! on another person's row."""
+        with patch(
+            "salary_pipeline.calculators.sales_advisor.parity_annotations._topology_cells",
+            return_value={
+                "提成汇总!X32": {"formula": "=SUMIFS(绩效整理表!AH:AH,绩效整理表!P:P,#REF!)"},
+            },
+        ):
+            with patch(
+                "salary_pipeline.calculators.sales_advisor.parity_annotations.golden_hub_names_by_row",
+                return_value={32: "牟春柳"},
+            ):
+                anns = detect_topology_formula_anomalies(
+                    {
+                        "roles": [
+                            {"name": "刘波", "hub_linked": True, "hub_excel_row": 32},
+                        ]
+                    },
+                    golden_workbook=Path("/tmp/golden.xlsx"),
+                )
+        self.assertEqual(anns, [])
+
+    def test_topology_ref_kept_when_hub_row_name_matches(self) -> None:
+        with patch(
+            "salary_pipeline.calculators.sales_advisor.parity_annotations._topology_cells",
+            return_value={
+                "提成汇总!X32": {"formula": "=SUMIFS(绩效整理表!AH:AH,绩效整理表!P:P,#REF!)"},
+            },
+        ):
+            with patch(
+                "salary_pipeline.calculators.sales_advisor.parity_annotations.golden_hub_names_by_row",
+                return_value={32: "刘波"},
+            ):
+                anns = detect_topology_formula_anomalies(
+                    {
+                        "roles": [
+                            {"name": "刘波", "hub_linked": True, "hub_excel_row": 32},
+                        ]
+                    },
+                    golden_workbook=Path("/tmp/golden.xlsx"),
+                )
+        self.assertEqual(len(anns), 1)
+        self.assertEqual(anns[0].name, "刘波")
+        self.assertEqual(anns[0].column, "权限结余绩效")
+
+    def test_skip_topology_annotation_when_parity_values_match(self) -> None:
+        topo = HubCellAnnotation(
+            name="刘波",
+            column="权限结余绩效",
+            reason="#REF! on wrong row",
+            source="topology",
+        )
+        with patch(
+            "salary_pipeline.calculators.sales_advisor.parity_annotations.load_annotation_registry",
+            return_value=[],
+        ):
+            with patch(
+                "salary_pipeline.calculators.sales_advisor.parity_annotations.detect_topology_formula_anomalies",
+                return_value=[topo],
+            ):
+                anns = annotations_for_workbook(
+                    parity_values={("刘波", "权限结余绩效"): (-1013.25, -1013.25)},
+                    deferred_cells={},
+                )
+        self.assertEqual(anns, [])
+
+    def test_keep_registry_annotation_when_parity_values_match(self) -> None:
+        reg_ann = HubCellAnnotation(
+            name="赵思梵",
+            column="权限结余绩效",
+            reason="VIN override",
+            source="registry",
+        )
+        with patch(
+            "salary_pipeline.calculators.sales_advisor.parity_annotations.load_annotation_registry",
+            return_value=[reg_ann],
+        ):
+            with patch(
+                "salary_pipeline.calculators.sales_advisor.parity_annotations.detect_topology_formula_anomalies",
+                return_value=[],
+            ):
+                anns = annotations_for_workbook(
+                    parity_values={("赵思梵", "权限结余绩效"): (100.0, 100.0)},
+                    deferred_cells={},
+                )
+        self.assertEqual(len(anns), 1)
+        self.assertEqual(anns[0].source, "registry")
+
+    def test_lookup_liubo_jiazhuange_ref_root_cause(self) -> None:
+        mismatch = CellMismatch(
+            join_values=(("店别", "西物"), ("职务", "销售顾问"), ("姓名", "刘波")),
+            column="加装额",
+            golden_value=1300.03,
+            computed_value=1700.04,
+        )
+        with patch(
+            "salary_pipeline.calculators.sales_advisor.parity_annotations._topology_cells",
+            return_value={
+                "提成汇总!J32": {
+                    "formula": "=SUMIF(绩效整理表!P:P,#REF!,绩效整理表!S:S)",
+                },
+            },
+        ):
+            cause = lookup_mismatch_root_cause(
+                mismatch,
+                registry={
+                    "roles": [
+                        {"name": "刘波", "hub_linked": True, "hub_excel_row": 32},
+                    ]
+                },
+            )
+        self.assertIn("#REF!", cause)
+        self.assertIn("装饰底价(S)", cause)
+
+    def test_enrich_cell_mismatches_attaches_root_cause(self) -> None:
+        mismatch = CellMismatch(
+            join_values=(("店别", "西物"), ("职务", "销售顾问"), ("姓名", "刘波")),
+            column="加装额",
+            golden_value=1300.03,
+            computed_value=1700.04,
+        )
+        with patch(
+            "salary_pipeline.calculators.sales_advisor.parity_annotations.lookup_mismatch_root_cause",
+            return_value="绩效整理表 S 列语义与金标准 SUMIF 源列不一致",
+        ):
+            enriched = enrich_cell_mismatches([mismatch])
+        self.assertEqual(len(enriched), 1)
+        self.assertEqual(
+            enriched[0].root_cause,
+            "绩效整理表 S 列语义与金标准 SUMIF 源列不一致",
+        )
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ PAGES_DIR = APP_DIR / "pages"
 SALARY_DIR = PAGES_DIR / "算薪"
 
 # st.switch_page 路径（相对 streamlit_app.py 所在目录）
+P_UPLOAD = "pages/0_发薪上传.py"
 P_OVERVIEW = "pages/1_总览.py"
 P_RECONCILE = "pages/2_对账中心.py"
 P_EXPLORE = "pages/3_差异探索.py"
@@ -30,6 +31,9 @@ def build_navigation() -> dict[str, list[st.Page]]:
     sections: dict[str, list[st.Page]] = {
         "": [
             st.Page(PAGES_DIR / "1_总览.py", title="总览", default=True, icon="📊"),
+        ],
+        "上传": [
+            st.Page(PAGES_DIR / "0_发薪上传.py", title="发薪上传", icon="📤"),
         ],
         "对账": [
             st.Page(PAGES_DIR / "2_对账中心.py", title="对账中心"),

@@ -103,6 +103,25 @@ def is_parity_deferred_cell(
     return column in deferred_cells.get(str(name).strip(), frozenset())
 
 
+def wa_parity_deferred_reasons(
+    registry: dict[str, Any] | None = None,
+) -> dict[str, dict[str, str]]:
+    """Per-cell deferred reason text from ``wa_parity_deferred`` YAML."""
+    reg = registry or load_role_registry()
+    out: dict[str, dict[str, str]] = {}
+    for entry in reg.get("wa_parity_deferred") or []:
+        name = str(entry.get("name", "")).strip()
+        if not name:
+            continue
+        cols = entry.get("columns") or {}
+        for column, reason in cols.items():
+            column = str(column).strip()
+            reason = str(reason).strip()
+            if column and reason:
+                out.setdefault(name, {})[column] = reason
+    return out
+
+
 def merge_sales_advisor_deferred_cells(
     *,
     wa_deferred: dict[str, frozenset[str]] | None = None,

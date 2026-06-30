@@ -7,7 +7,11 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import load_workbook
 
-from salary_pipeline.pipelines.commission_summary import CommissionSummaryBuilder
+from salary_pipeline.pipelines.non_frontline_columns import apply_non_frontline_columns
+from salary_pipeline.pipelines.commission_summary import (
+    SUMMARY_TEMPLATE_COLUMNS,
+    CommissionSummaryBuilder,
+)
 from salary_pipeline.utils.excel_format import (
     INTEGER_DISPLAY_HEADERS,
     TWO_DECIMAL_FORMAT,
@@ -69,6 +73,30 @@ class ExcelFormatTests(unittest.TestCase):
             self.assertEqual(ws["E3"].number_format, "General")
             self.assertEqual(ws["H3"].number_format, TWO_DECIMAL_FORMAT)
             self.assertEqual(ws["I3"].number_format, TWO_DECIMAL_FORMAT)
+
+    def test_commission_summary_export_includes_template_semantic_columns(self) -> None:
+        summary = pd.DataFrame(
+            {
+                "序号": [1],
+                "店别": ["财务部"],
+                "职务": ["会计"],
+                "姓名": ["罗涵"],
+                "人数": [1],
+                "综合毛利": [742.0],
+                "主营单台毛利": [2.0],
+                "整车绩效": [2700.0],
+                "加装绩效": [1484.0],
+            }
+        )
+        summary = apply_non_frontline_columns(summary)
+        builder = CommissionSummaryBuilder()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(summary, path)
+            exported = pd.read_excel(path, header=1, nrows=0)
+        self.assertEqual(list(exported.columns), SUMMARY_TEMPLATE_COLUMNS)
+        for col in ("台次", "提成系数", "岗位绩效", "业绩绩效1"):
+            self.assertIn(col, exported.columns)
 
     def test_integer_headers_constant(self) -> None:
         self.assertIn("台数", INTEGER_DISPLAY_HEADERS)

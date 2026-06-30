@@ -65,3 +65,63 @@
 **最佳开工时机：** `绩效整理表` 数据层（Phase B，迭代 5 / 明细 ingestion Epic）立项时，将 `sales_advisor_performance` 作为后半段；观察台算薪页、销售主管统一治理、硬门禁扩展为并列触发条件。详见 [iterations/sales-advisor/README.md](../iterations/sales-advisor/README.md)。
 
 > `销售提成标准` 有 **164** 条规则、`Hub` 仅 **51** 行顾问 + **2** 行主管；引擎只回放 Hub 格公式，模块须单独定义「谁进 hub / 谁仅子表」策略，避免把 164 人全塞进一套算子。
+
+## 非一线：语义列（2026-06）
+
+金标准 `提成汇总` 在多个区块用**子表头复用物理列**，系统另增语义列避免与一线混读。物理列数值不变（F–P 对账、XW SUMIF 兼容）。
+
+### 管理区块（row 138/145）
+
+| Excel 列 | 一线表头 | 非一线子表头 |
+|----------|----------|--------------|
+| W | 整车绩效 | **岗位绩效** |
+| Y | 加装绩效 | **业绩绩效** |
+
+店别：销售管理部、事业部、总经办；职务补充：实习销售总监、网销经理。
+
+### 支持部门区块（row 161）
+
+| 物理列 | 一线表头 | 支持部门子表头 |
+|--------|----------|----------------|
+| M | 整车毛利 | 售后总产值 |
+| N | 加装毛利 | 配件外销 |
+| Q | 爱车宝毛利 | 售后产值 |
+| R | 上户毛利 | 出库 |
+| S | 整车+加装（毛利） | 入库 |
+| T | 综合毛利 | 台次 |
+| U | 主营单台毛利 | 提成系数 |
+| V | 综合单台毛利 | 提成系数2 |
+| W | 整车绩效 | 岗位绩效 |
+| X | 权限结余绩效 | 新能源专项 |
+| Y | 加装绩效 | 业绩绩效1 |
+| Z | 保险绩效 | 业绩绩效2 |
+
+店别：财务部、市场部、物流、上户部、增值业务部、客户关系部、行政人事部、销售支持、机场网销、武侯展厅、其它。
+
+配置与复制：`config/non_frontline_roles.yaml`、`calculators/non_frontline/classification.py`、`pipelines/non_frontline_columns.py`（overlay 之后执行）；生成的 `提成汇总.xlsx` 与观察台预览均含全部语义列。
+
+### 流水线顺序（overlay 之后）
+
+1. **`bootstrap_non_frontline_physical_columns`**：从金标准 `提成汇总` 按 `店别/职务/姓名` 回填非一线物理列空值（支持部门 M–U、管理岗手工 W/Y 等 Hub 引擎未覆盖格）。
+2. **`apply_non_frontline_columns`**：按 `non_frontline_roles.yaml` 将物理列复制到语义列，并**清空**该行物理列，避免导出表与一线表头混读；Hub 缓存在此步之前写入，F–P / W–AI 对账仍按物理列比对。
+3. **`CommissionSummaryBuilder._align_to_template`**：列序与模板对齐后导出。
+
+### 对账高亮与语义列
+
+- `expand_highlight_columns`：琥珀 mismatch / 灰蓝 deferred 着色时，若比对列含物理列则同时着色对应语义列（反之亦然）。
+- `highlight_column_for_row`：非一线行按 tier 映射决定 Excel 上着色的列名（金标准物理列 vs 系统语义列）。
+
+配置：`parity.auto_highlight: true`（`month.yaml`）时，`compute` 与发薪试算在 **`export_excel` 之后** 调用 `apply_commission_summary_highlighting`，与 `reconcile` 同色图例与批注。
+
+### 琥珀格批注格式
+
+`format_mismatch_comment_text` 三行结构：
+
+1. 标题（默认「数值不一致」）
+2. `金标准: … | 系统: … | 差: …`
+3. `原因: …` — 由 `enrich_cell_mismatches` / `lookup_mismatch_root_cause` 解析：YAML 个案、`wa_parity_deferred`、金标准 topology 公式（含 #REF! / SUMIF 列说明）、非一线列映射、F–P / W–AI 分层兜底。
+
+拓扑 anomaly 扫描会用金标准 workbook D 列校验 `hub_excel_row` 与登记姓名一致（如 **刘波** 行 32），避免错位格误标橙色。
+
+实现：`pipelines/non_frontline_columns.py`、`pipelines/commission_summary_formatting.py`、`calculators/sales_advisor/parity_annotations.py`、`utils/excel_format.py`。
+

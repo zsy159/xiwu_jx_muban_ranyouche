@@ -25,6 +25,10 @@ from salary_pipeline.config.hub_performance_match import (
     gated_performance_columns,
 )
 from salary_pipeline.calculators.sales_advisor.registry import is_parity_deferred_cell
+from salary_pipeline.calculators.non_frontline.classification import (
+    highlight_column_for_row,
+    parity_compare_columns,
+)
 from salary_pipeline.validation.golden_perf_skips import (
     erwang_blank_ah_adjustments_for_paths,
     hub_parity_skip_erwang_blank_ah,
@@ -59,6 +63,7 @@ class CellMismatch:
     column: str
     golden_value: float | None = None
     computed_value: float | None = None
+    root_cause: str | None = None
 
     def join_dict(self) -> dict[str, Any]:
         return dict(self.join_values)
@@ -378,6 +383,31 @@ class CommissionSummaryParity:
             )
         return self._erwang_ah_adjustments
 
+    def _resolve_merged_cols(
+        self,
+        merged: pd.DataFrame,
+        golden_col: str,
+        computed_col: str,
+    ) -> tuple[str | None, str | None]:
+        if f"{golden_col}_golden" in merged.columns:
+            g_col: str | None = f"{golden_col}_golden"
+        elif golden_col in merged.columns:
+            g_col = golden_col
+        else:
+            g_col = None
+        if f"{computed_col}_computed" in merged.columns:
+            c_col: str | None = f"{computed_col}_computed"
+        elif computed_col in merged.columns:
+            c_col = computed_col
+        else:
+            c_col = None
+        return g_col, c_col
+
+    def _row_shop_role(self, row: pd.Series) -> tuple[Any, Any]:
+        shop = row.get("店别")
+        role = row.get("职务")
+        return shop, role
+
     def _apply_parity_skips(
         self,
         merged: pd.DataFrame,
@@ -457,40 +487,59 @@ class CommissionSummaryParity:
         mismatch_cells = 0
 
         for col in compare_columns:
-            g_col = f"{col}_golden" if f"{col}_golden" in merged.columns else col
-            c_col = f"{col}_computed" if f"{col}_computed" in merged.columns else col
-            if g_col not in merged.columns or c_col not in merged.columns:
-                continue
-
-            g_series = merged[g_col]
-            c_series = merged[c_col]
-            mismatches = ~self._values_equal(g_series, c_series)
-            mismatches = self._apply_parity_skips(
-                merged,
-                mismatches,
-                role=str(role),
-                column=col,
-                g_col=g_col,
-                c_col=c_col,
-            )
-            count = int(mismatches.sum())
-            if count == 0:
-                continue
-
-            mismatch_cells += count
-            max_diff = self._max_abs_diff(g_series[mismatches], c_series[mismatches])
+            mismatch_cells_for_col = 0
+            max_diff: float | None = None
             samples: list[dict[str, Any]] = []
-            for idx in merged.index[mismatches][: self.max_samples_per_column]:
-                row = merged.loc[idx]
-                sample = {k: row.get(k) for k in self.join_keys}
-                sample["golden"] = row[g_col]
-                sample["computed"] = row[c_col]
-                samples.append(sample)
 
+            for idx in merged.index:
+                row = merged.loc[idx]
+                shop, role = self._row_shop_role(row)
+                golden_col, computed_col = parity_compare_columns(shop, role, col)
+                g_col, c_col = self._resolve_merged_cols(merged, golden_col, computed_col)
+                if g_col is None or c_col is None:
+                    continue
+
+                g_val = row[g_col]
+                c_val = row[c_col]
+                equal = self._values_equal(
+                    pd.Series([g_val], index=[idx]),
+                    pd.Series([c_val], index=[idx]),
+                ).iloc[0]
+                if equal:
+                    continue
+
+                still_mismatch = self._apply_parity_skips(
+                    merged.loc[[idx]],
+                    pd.Series([True], index=[idx]),
+                    role=str(role),
+                    column=col,
+                    g_col=g_col,
+                    c_col=c_col,
+                ).iloc[0]
+                if not still_mismatch:
+                    continue
+
+                mismatch_cells_for_col += 1
+                diff = self._max_abs_diff(
+                    pd.Series([g_val], index=[idx]),
+                    pd.Series([c_val], index=[idx]),
+                )
+                if diff is not None and (max_diff is None or diff > max_diff):
+                    max_diff = diff
+                if len(samples) < self.max_samples_per_column:
+                    sample = {k: row.get(k) for k in self.join_keys}
+                    sample["golden"] = g_val
+                    sample["computed"] = c_val
+                    samples.append(sample)
+
+            if mismatch_cells_for_col == 0:
+                continue
+
+            mismatch_cells += mismatch_cells_for_col
             column_diffs.append(
                 ColumnDiff(
                     column=col,
-                    mismatch_count=count,
+                    mismatch_count=mismatch_cells_for_col,
                     max_abs_diff=max_diff,
                     sample_rows=samples,
                 )
@@ -523,37 +572,42 @@ class CommissionSummaryParity:
     ) -> list[CellMismatch]:
         cells: list[CellMismatch] = []
         for col in compare_columns:
-            g_col = f"{col}_golden" if f"{col}_golden" in merged.columns else col
-            c_col = f"{col}_computed" if f"{col}_computed" in merged.columns else col
-            if g_col not in merged.columns or c_col not in merged.columns:
-                continue
-
-            g_series = merged[g_col]
-            c_series = merged[c_col]
-            mismatches = ~self._values_equal(g_series, c_series)
-            mismatches = self._apply_parity_skips(
-                merged,
-                mismatches,
-                role=role,
-                column=col,
-                g_col=g_col,
-                c_col=c_col,
-            )
-            if not mismatches.any():
-                continue
-
-            for idx in merged.index[mismatches]:
+            for idx in merged.index:
                 row = merged.loc[idx]
+                shop, role = self._row_shop_role(row)
+                golden_col, computed_col = parity_compare_columns(shop, role, col)
+                g_col, c_col = self._resolve_merged_cols(merged, golden_col, computed_col)
+                if g_col is None or c_col is None:
+                    continue
+
+                g_val = row[g_col]
+                c_val = row[c_col]
+                equal = self._values_equal(
+                    pd.Series([g_val], index=[idx]),
+                    pd.Series([c_val], index=[idx]),
+                ).iloc[0]
+                if equal:
+                    continue
+
+                still_mismatch = self._apply_parity_skips(
+                    merged.loc[[idx]],
+                    pd.Series([True], index=[idx]),
+                    role=role,
+                    column=col,
+                    g_col=g_col,
+                    c_col=c_col,
+                ).iloc[0]
+                if not still_mismatch:
+                    continue
+
                 join_values = tuple(
                     (key, row.get(f"{key}_golden", row.get(key)))
                     for key in self.join_keys
                 )
-                g_val = row[g_col]
-                c_val = row[c_col]
                 cells.append(
                     CellMismatch(
                         join_values=join_values,
-                        column=col,
+                        column=highlight_column_for_row(shop, role, col),
                         golden_value=_cell_float(g_val),
                         computed_value=_cell_float(c_val),
                     )

@@ -103,6 +103,36 @@ role_families:
       - 整车完成考核
     parity_gate: true
 
+  非一线管理:
+  # 销售管理部 / 事业部 / 总经办：金标准 W/Y 子表头为岗位绩效/业绩绩效
+  # 支持部门（财务部等）：row 161 子表头 M–Z，见 non_frontline_roles.yaml support tier
+  # Hub 仍写物理列；系统另增全部语义列（含售后总产值、台次、提成系数等）
+    rules_sheet: 销售提成标准
+    algorithm: hub_topology_or_static
+    match:
+      店别:
+        - 销售管理部
+        - 事业部
+        - 总经办
+    hub_columns:
+      - 整车绩效
+      - 加装绩效
+    semantic_columns:
+      - 售后总产值
+      - 配件外销
+      - 售后产值
+      - 出库
+      - 入库
+      - 台次
+      - 提成系数
+      - 提成系数2
+      - 岗位绩效
+      - 业绩绩效
+      - 新能源专项
+      - 业绩绩效1
+      - 业绩绩效2
+    parity_gate: false
+
   招聘:
     module: recruit_performance
     rules_sheet: 销售提成标准

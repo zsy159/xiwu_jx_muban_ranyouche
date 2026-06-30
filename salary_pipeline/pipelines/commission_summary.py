@@ -17,7 +17,11 @@ SUMMARY_TEMPLATE_COLUMNS = [
     "序号", "店别", "职务", "姓名", "人数", "考核量", "实际销量", "销量完成率",
     "集客达成率", "加装额", "加装销量完成率", "保险渗透率", "整车毛利", "加装毛利",
     "保险毛利", "按揭毛利", "爱车宝毛利", "上户毛利", "整车+加装（毛利）", "综合毛利",
-    "主营单台毛利", "综合单台毛利", "整车绩效", "权限结余绩效", "加装绩效", "保险绩效",
+    "主营单台毛利", "综合单台毛利",
+    "售后总产值", "配件外销", "售后产值", "出库", "入库", "台次", "提成系数", "提成系数2",
+    "整车绩效", "权限结余绩效", "加装绩效",
+    "岗位绩效", "业绩绩效", "新能源专项", "业绩绩效1", "业绩绩效2",
+    "保险绩效",
     "金融绩效", "爱车宝绩效", "上户绩效", "盈利产品绩效", "延保提成", "特殊车型+指定车型",
     "座位险提成", "二手车提成", "玻碎险提成", "提成合计", "整车完成考核", "加装完成考核",
     "综合项", "04月活动", "超期", "（已发放奖励）", "交车支出", "保客考核", "考核小计",
@@ -100,12 +104,13 @@ class CommissionSummaryBuilder:
         sheet_name: str = "提成汇总",
     ) -> Path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        aligned = self._align_to_template(summary)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             title = pd.DataFrame([[sheet_name]], columns=[sheet_name])
             title.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startrow=0)
-            summary.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1)
+            aligned.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1)
             format_writer_sheet(
-                writer, sheet_name, summary.columns, header_row=2
+                writer, sheet_name, aligned.columns, header_row=2
             )
         logger.info("Exported commission summary -> %s", output_path)
         return output_path

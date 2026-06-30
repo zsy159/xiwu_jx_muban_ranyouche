@@ -52,6 +52,11 @@ def _file_fingerprint(path: Path) -> str:
     return f"sha256:{_sha256_file(path)}:{stat.st_mtime_ns}:{stat.st_size}"
 
 
+def file_fingerprint(path: Path) -> str:
+    """Public wrapper for workbook / topology source hashing."""
+    return _file_fingerprint(path)
+
+
 def _yaml_section_fingerprint(path: Path, *keys: str) -> str:
     if not path.exists():
         return f"missing:{path}"

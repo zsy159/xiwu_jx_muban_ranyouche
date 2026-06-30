@@ -32,14 +32,14 @@ from streamlit.web import cli as stcli
 
 APP = SALARY_PIPELINE / "app" / "streamlit_app.py"
 
-# 默认开启保存即重跑；显式监视整个 salary_pipeline（pipelines/ 等不在 app/ 下的模块）
+# 默认关闭保存即重跑，避免长试算被页面重载打断；仅监视 app 目录热重载 UI
 _DEFAULT_FLAGS = (
     "--server.runOnSave",
-    "true",
+    "false",
     "--server.fileWatcherType",
     "auto",
     "--server.folderWatchList",
-    str(SALARY_PIPELINE),
+    str(SALARY_PIPELINE / "app"),
 )
 
 if __name__ == "__main__":

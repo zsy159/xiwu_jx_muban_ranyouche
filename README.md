@@ -78,6 +78,8 @@ python main.py compute --reconcile
 
 本地 Streamlit 界面，用于查看各锚点表对账结论、差异下钻与验收摘要导出。
 
+**发薪上传**（侧边栏「上传 → 发薪上传」）：上传当月底层 Excel，按工作表名称匹配必需表，试算预览后确认正式生成。
+
 ```bash
 pip install -r requirements.txt   # 含 streamlit
 python run_console.py

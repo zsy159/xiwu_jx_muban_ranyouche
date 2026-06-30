@@ -236,11 +236,33 @@ def load_month_config(config_dir: Path | None = None) -> dict[str, Any]:
 class WorkbookLoader:
     """Read registered sheets from the monthly sales workbook."""
 
-    def __init__(self, workbook_path: Path) -> None:
+    def __init__(
+        self,
+        workbook_path: Path,
+        *,
+        sheet_paths: dict[str, Path] | None = None,
+    ) -> None:
         self.workbook_path = Path(workbook_path)
+        self.sheet_paths = {
+            name: Path(path) for name, path in (sheet_paths or {}).items()
+        }
         self._wb = None
         self._cell_cache: dict[tuple[str, str], Any] = {}
-        self._raw_sheet_cache: dict[str, pd.DataFrame] = {}
+        self._raw_sheet_cache: dict[tuple[Path, str], pd.DataFrame] = {}
+        self._delegates: dict[Path, WorkbookLoader] = {}
+
+    def _path_for_sheet(self, sheet_name: str) -> Path:
+        return self.sheet_paths.get(sheet_name, self.workbook_path)
+
+    def _delegate_for_sheet(self, sheet_name: str) -> WorkbookLoader:
+        path = self._path_for_sheet(sheet_name)
+        if path.resolve() == self.workbook_path.resolve():
+            return self
+        delegate = self._delegates.get(path)
+        if delegate is None:
+            delegate = WorkbookLoader(path)
+            self._delegates[path] = delegate
+        return delegate
 
     def _workbook(self):
         if self._wb is None:
@@ -249,7 +271,7 @@ class WorkbookLoader:
             )
         return self._wb
 
-    def read_cell_value(self, sheet_name: str, address: str) -> Any:
+    def _read_cell_value_local(self, sheet_name: str, address: str) -> Any:
         address = address.strip().upper()
         cache_key = (sheet_name, address)
         if cache_key in self._cell_cache:
@@ -265,17 +287,29 @@ class WorkbookLoader:
         self._cell_cache[cache_key] = value
         return value
 
+    def read_cell_value(self, sheet_name: str, address: str) -> Any:
+        delegate = self._delegate_for_sheet(sheet_name)
+        if delegate is self:
+            return self._read_cell_value_local(sheet_name, address)
+        return delegate.read_cell_value(sheet_name, address)
+
     def _read_raw_sheet(self, sheet_name: str) -> pd.DataFrame:
         """Load a full sheet once per loader instance (shared across column slices)."""
-        if sheet_name not in self._raw_sheet_cache:
-            logger.debug("Caching raw sheet %s from %s", sheet_name, self.workbook_path.name)
-            self._raw_sheet_cache[sheet_name] = pd.read_excel(
-                self.workbook_path,
+        path = self._path_for_sheet(sheet_name)
+        cache_key = (path.resolve(), sheet_name)
+        if cache_key not in self._raw_sheet_cache:
+            logger.debug(
+                "Caching raw sheet %s from %s",
+                sheet_name,
+                path.name,
+            )
+            self._raw_sheet_cache[cache_key] = pd.read_excel(
+                path,
                 sheet_name=sheet_name,
                 header=None,
                 engine="openpyxl",
             )
-        return self._raw_sheet_cache[sheet_name]
+        return self._raw_sheet_cache[cache_key]
 
     def read_sheet_columns(
         self,
@@ -312,7 +346,14 @@ class WorkbookLoader:
 def build_workbook_loader(context: dict[str, Any]) -> WorkbookLoader:
     config = context["month_config"]
     sales_path = resolve_project_path(config["workbooks"]["sales"])
-    return WorkbookLoader(sales_path)
+    sheet_paths = context.get("sheet_sources")
+    if not sheet_paths:
+        rel = config.get("workbooks", {}).get("sheet_sources_file")
+        if rel:
+            from salary_pipeline.ingestion_upload.sheet_merge import load_sheet_sources
+
+            sheet_paths = load_sheet_sources(resolve_project_path(rel))
+    return WorkbookLoader(sales_path, sheet_paths=sheet_paths)
 
 
 def read_summary_skeleton_keys(

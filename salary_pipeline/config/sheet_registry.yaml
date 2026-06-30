@@ -20,6 +20,30 @@ sales_workbook:
   装饰台账:
     role: input
     header_row: 1
+  翼真考核:
+    role: input
+    header_row: 1
+    note: 提成汇总 AK 列 SUMIF 翼真店管理岗整车完成考核
+  按揭原表:
+    role: input
+    header_row: 1
+    note: 绩效整理表 AL/闭包 Z；按揭明细公式上游（Phase B Slice 3）
+  指标汇总:
+    role: input
+    header_row: 1
+    note: 提成汇总算术公式引用（如 M−指标汇总!E）；Hub METRICS_SHEET，尚未系统重算
+  保客考核明细:
+    role: input
+    header_row: 1
+    note: 提成汇总 AR 列 SUMIF 保客考核（纯输入）
+  直营店交车:
+    role: input
+    header_row: 1
+    note: 提成汇总 AQ 列 SUMIF 直营店交车奖励（纯输入）
+  综合表:
+    role: input
+    header_row: 1
+    note: 提成汇总 AM/AP 列 SUMIF 综合项与考核小计；中间公式表，上传需含当月结果
   系统销售毛利:
     role: input
     header_row: 2

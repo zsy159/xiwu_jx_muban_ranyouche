@@ -18,6 +18,9 @@ from salary_pipeline.pipelines.run_cache import (
     read_manifest,
     resolve_cache_dir,
 )
+from salary_pipeline.pipelines.commission_summary_formatting import (
+    apply_commission_summary_highlighting,
+)
 from salary_pipeline.pipelines.sales import SalesPipeline
 from salary_pipeline.pipelines.aftersales import AftersalesPipeline
 from salary_pipeline.pipelines.aftersales_formula_engine import (
@@ -37,19 +40,6 @@ from salary_pipeline.validation.parity import (
 )
 from salary_pipeline.calculators.sales_advisor.registry import (
     build_reconcile_deferred_cells,
-)
-from salary_pipeline.calculators.sales_advisor.topology_specs import (
-    collect_topology_static_fill_cells,
-)
-from salary_pipeline.calculators.sales_advisor.parity_annotations import (
-    annotations_for_workbook,
-    parity_values_for_annotations,
-)
-from salary_pipeline.utils.excel_format import (
-    add_commission_summary_annotations,
-    add_commission_summary_color_legend,
-    highlight_commission_summary_deferred_cells,
-    highlight_commission_summary_mismatches,
 )
 
 
@@ -213,83 +203,22 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
         parity_cfg.get("performance_columns") or []
     )
     if compare_columns:
-        add_commission_summary_color_legend(computed_path, sheet, insert_at_row=2)
-        highlight_header_row = header_row + 1
-        highlight_data_start = data_start_row + 1
-        highlight_checker = CommissionSummaryParity(
-            join_keys=parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
-            numeric_tolerance=float(parity_cfg.get("numeric_tolerance", 1e-6)),
-            columns=compare_columns,
-            deferred_cells=deferred_for_highlight,
-        )
-        mismatches = highlight_checker.collect_mismatches_from_files(
+        stats = apply_commission_summary_highlighting(
+            config,
             computed_path,
-            golden_path,
-            sheet,
-            header_row=highlight_header_row,
-            data_start_row=highlight_data_start,
-            golden_header_row=header_row,
-            golden_data_start_row=data_start_row,
-        )
-        highlighted = highlight_commission_summary_mismatches(
-            computed_path,
-            sheet,
-            mismatches,
-            parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
-            compare_columns,
-            header_row=highlight_header_row,
-            data_start_row=highlight_data_start,
+            golden_path=golden_path,
         )
         print(
-            f"[reconcile] 高亮 {highlighted} 个不一致单元格 -> {computed_path}"
+            f"[reconcile] 高亮 {stats.mismatches} 个不一致单元格 -> {computed_path}"
         )
-        static_cells = collect_topology_static_fill_cells(
-            golden_workbook_path=golden_path,
-            header_row=header_row,
-            data_start_row=data_start_row,
-        )
-        deferred_highlighted = highlight_commission_summary_deferred_cells(
-            computed_path,
-            sheet,
-            deferred_for_highlight,
-            static_cells=static_cells,
-            header_row=highlight_header_row,
-            data_start_row=highlight_data_start,
-        )
-        if deferred_highlighted:
+        if stats.deferred:
             print(
-                f"[reconcile] 高亮 {deferred_highlighted} 个单元格"
+                f"[reconcile] 高亮 {stats.deferred} 个单元格"
                 f"（灰=金标准直填，蓝=公式含手工） -> {computed_path}"
             )
-
-        base_annotations = annotations_for_workbook(
-            deferred_cells=deferred_for_highlight,
-        )
-        parity_values = parity_values_for_annotations(
-            computed_path,
-            golden_path,
-            sheet,
-            [ann.key() for ann in base_annotations],
-            join_keys=parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
-            header_row=highlight_header_row,
-            data_start_row=highlight_data_start,
-            golden_header_row=header_row,
-            golden_data_start_row=data_start_row,
-        )
-        annotations = annotations_for_workbook(
-            parity_values=parity_values,
-            deferred_cells=deferred_for_highlight,
-        )
-        annotated = add_commission_summary_annotations(
-            computed_path,
-            sheet,
-            annotations,
-            header_row=highlight_header_row,
-            data_start_row=highlight_data_start,
-        )
-        if annotated:
+        if stats.annotated:
             print(
-                f"[reconcile] 批注 {annotated} 个公式异常单元格 -> {computed_path}"
+                f"[reconcile] 批注 {stats.annotated} 个公式异常单元格 -> {computed_path}"
             )
 
     return 0 if report.overall_passed else 2

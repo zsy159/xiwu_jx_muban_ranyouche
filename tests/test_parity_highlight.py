@@ -26,6 +26,7 @@ from salary_pipeline.utils.excel_format import (
     PARITY_MISMATCH_FILL_RGB,
     STATIC_FILL_COMMENT,
     add_commission_summary_color_legend,
+    format_mismatch_comment_text,
     highlight_commission_summary_deferred_cells,
     highlight_commission_summary_mismatches,
 )
@@ -196,8 +197,8 @@ class ParityHighlightTests(unittest.TestCase):
             self.assertIsNotNone(ws["D3"].comment)
             assert ws["D3"].comment is not None
             self.assertIn(PARITY_MISMATCH_FILL_COMMENT, ws["D3"].comment.text)
-            self.assertIn("金标准=100", ws["D3"].comment.text)
-            self.assertIn("系统=101", ws["D3"].comment.text)
+            self.assertIn("金标准: 100", ws["D3"].comment.text)
+            self.assertIn("系统: 101", ws["D3"].comment.text)
             self.assertEqual(
                 ws["E4"].fill.start_color.rgb,
                 PARITY_MISMATCH_FILL_RGB,
@@ -449,6 +450,88 @@ class ParityHighlightTests(unittest.TestCase):
             self.assertIsNotNone(cell.comment)
             self.assertEqual(cell.comment.text, STATIC_FILL_COMMENT)
 
+    def test_mismatch_comment_includes_root_cause(self) -> None:
+        text = format_mismatch_comment_text(
+            golden_value=1300.03,
+            computed_value=1700.04,
+            root_cause="绩效整理表 S 列语义与金标准 SUMIF 源列不一致",
+        )
+        self.assertIn("金标准: 1300.03", text)
+        self.assertIn("系统: 1700.04", text)
+        self.assertIn("原因:", text)
+        self.assertIn("S 列语义", text)
+
+    def test_highlight_mismatch_with_root_cause_comment(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        mismatch = CellMismatch(
+            join_values=(("店别", "西物"), ("职务", "销售顾问"), ("姓名", "张三")),
+            column="整车毛利",
+            golden_value=100.0,
+            computed_value=101.0,
+            root_cause="F–P 验收层：测试根因",
+        )
+        builder = CommissionSummaryBuilder(
+            template_columns=["店别", "职务", "姓名", "整车毛利"]
+        )
+        df = pd.DataFrame(
+            [{"店别": "西物", "职务": "销售顾问", "姓名": "张三", "整车毛利": 101.0}]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(df, path)
+            highlight_commission_summary_mismatches(
+                path,
+                "提成汇总",
+                [mismatch],
+                join_keys,
+                ["整车毛利"],
+            )
+            wb = load_workbook(path)
+            ws = wb["提成汇总"]
+            col = list(df.columns).index("整车毛利") + 1
+            cell = ws.cell(row=3, column=col)
+            assert cell.comment is not None
+            self.assertIn("原因: F–P 验收层：测试根因", cell.comment.text)
+
+    def test_deferred_comment_includes_yaml_reason(self) -> None:
+        columns = ["店别", "职务", "姓名", "整车绩效"]
+        df = pd.DataFrame(
+            [
+                {
+                    "店别": "西物",
+                    "职务": "销售顾问",
+                    "姓名": "唐操",
+                    "整车绩效": 100.0,
+                },
+            ]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        deferred = {"唐操": frozenset({"整车绩效"})}
+        reasons = {
+            "唐操": {
+                "整车绩效": "渠道 I 个案（L6T78XCZ5TY782006），待核对后修 order_context",
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(df, path)
+
+            highlighted = highlight_commission_summary_deferred_cells(
+                path,
+                "提成汇总",
+                deferred,
+                deferred_reasons=reasons,
+            )
+            self.assertEqual(highlighted, 1)
+
+            wb = load_workbook(path)
+            ws = wb["提成汇总"]
+            perf_col = columns.index("整车绩效") + 1
+            cell = ws.cell(row=3, column=perf_col)
+            assert cell.comment is not None
+            self.assertIn(MANUAL_DEFERRED_FILL_COMMENT, cell.comment.text)
+            self.assertIn("渠道 I 个案", cell.comment.text)
+
     def test_highlight_deferred_cells_blue_fill_and_comment(self) -> None:
         columns = ["店别", "职务", "姓名", "整车绩效"]
         df = pd.DataFrame(
@@ -641,6 +724,102 @@ class ParityHighlightTests(unittest.TestCase):
         mismatches = checker.collect_cell_mismatches(computed, golden)
         self.assertEqual(len(mismatches), 1)
         self.assertEqual(mismatches[0].column, "权限结余绩效")
+
+
+class NonFrontlineHighlightTests(unittest.TestCase):
+    def test_static_highlight_follows_semantic_column_after_migration(self) -> None:
+        columns = [
+            "店别",
+            "职务",
+            "姓名",
+            "整车绩效",
+            "岗位绩效",
+        ]
+        df = pd.DataFrame(
+            [
+                {
+                    "店别": "事业部",
+                    "职务": "事业部总经理",
+                    "姓名": "刘伟生",
+                    "整车绩效": pd.NA,
+                    "岗位绩效": 6500.0,
+                },
+            ]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        static_cells = {("刘伟生", "事业部总经理"): frozenset({"整车绩效"})}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(df, path)
+
+            highlighted = highlight_commission_summary_deferred_cells(
+                path,
+                "提成汇总",
+                {},
+                static_cells=static_cells,
+            )
+            self.assertEqual(highlighted, 1)
+
+            wb = load_workbook(path)
+            ws = wb["提成汇总"]
+            physical_col = columns.index("整车绩效") + 1
+            semantic_col = columns.index("岗位绩效") + 1
+            self.assertNotEqual(
+                ws.cell(row=3, column=physical_col).fill.start_color.rgb,
+                GOLDEN_STATIC_FILL_RGB,
+            )
+            self.assertEqual(
+                ws.cell(row=3, column=semantic_col).fill.start_color.rgb,
+                GOLDEN_STATIC_FILL_RGB,
+            )
+
+    def test_parity_mismatch_targets_semantic_column(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "事业部",
+                    "职务": "事业部总经理",
+                    "姓名": "刘伟生",
+                    "整车绩效": 6500.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed["岗位绩效"] = 6400.0
+        computed["整车绩效"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效"],
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(len(mismatches), 1)
+        self.assertEqual(mismatches[0].column, "岗位绩效")
+
+        builder = CommissionSummaryBuilder(
+            template_columns=["店别", "职务", "姓名", "整车绩效", "岗位绩效"]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(computed, path)
+            highlight_commission_summary_mismatches(
+                path,
+                "提成汇总",
+                mismatches,
+                join_keys,
+                ["整车绩效"],
+            )
+            wb = load_workbook(path)
+            ws = wb["提成汇总"]
+            self.assertEqual(
+                ws.cell(row=3, column=5).fill.start_color.rgb,
+                PARITY_MISMATCH_FILL_RGB,
+            )
+            self.assertNotEqual(
+                ws.cell(row=3, column=4).fill.start_color.rgb,
+                PARITY_MISMATCH_FILL_RGB,
+            )
 
 
 class ColorLegendTests(unittest.TestCase):

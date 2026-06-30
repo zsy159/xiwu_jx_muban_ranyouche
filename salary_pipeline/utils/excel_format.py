@@ -10,6 +10,10 @@ from openpyxl.comments import Comment
 from openpyxl.styles import PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 
+from salary_pipeline.calculators.non_frontline.classification import (
+    expand_highlight_columns,
+    highlight_column_for_row,
+)
 from salary_pipeline.data_ingestion.data_loader import normalize_header, normalize_name
 
 TWO_DECIMAL_FORMAT = "#,##0.00"
@@ -67,6 +71,7 @@ class ParityMismatchCell(Protocol):
     column: str
     golden_value: float | None
     computed_value: float | None
+    root_cause: str | None
 
 
 class CommissionSummaryAnnotation(Protocol):
@@ -174,14 +179,39 @@ def _build_excel_row_index(
     return index
 
 
-def _mismatch_comment(mismatch: ParityMismatchCell) -> str:
-    lines = [PARITY_MISMATCH_FILL_COMMENT]
-    golden = mismatch.golden_value
-    computed = mismatch.computed_value
+def format_mismatch_comment_text(
+    *,
+    golden_value: float | None = None,
+    computed_value: float | None = None,
+    root_cause: str | None = None,
+    headline: str = PARITY_MISMATCH_FILL_COMMENT,
+) -> str:
+    """Build amber mismatch cell comment: golden / computed / root cause."""
+    lines = [headline]
+    golden = golden_value
+    computed = computed_value
     if golden is not None and computed is not None:
         diff = computed - golden
-        lines.append(f"金标准={golden:g}  系统={computed:g}  差={diff:+g}")
+        lines.append(f"金标准: {golden:g} | 系统: {computed:g} | 差: {diff:+g}")
+    if root_cause:
+        lines.append(f"原因: {root_cause.strip()}")
     return "\n".join(lines)
+
+
+def _mismatch_comment(mismatch: ParityMismatchCell) -> str:
+    return format_mismatch_comment_text(
+        golden_value=mismatch.golden_value,
+        computed_value=mismatch.computed_value,
+        root_cause=getattr(mismatch, "root_cause", None),
+    )
+
+
+def _legend_row_present(worksheet: Worksheet, row: int) -> bool:
+    for col in range(1, worksheet.max_column + 1):
+        value = worksheet.cell(row=row, column=col).value
+        if isinstance(value, str) and "数值不一致" in value:
+            return True
+    return False
 
 
 def add_commission_summary_color_legend(
@@ -189,12 +219,18 @@ def add_commission_summary_color_legend(
     sheet_name: str,
     *,
     insert_at_row: int = 2,
-) -> None:
-    """Insert a row of color swatches and Chinese labels for reconcile highlighting."""
+) -> bool:
+    """Insert a row of color swatches and Chinese labels for reconcile highlighting.
+
+    Returns True when a new legend row was inserted, False when one already exists.
+    """
     wb = load_workbook(workbook_path)
     if sheet_name not in wb.sheetnames:
         raise KeyError(f"sheet {sheet_name!r} not found in {workbook_path}")
     ws = wb[sheet_name]
+    if _legend_row_present(ws, insert_at_row):
+        wb.close()
+        return False
     ws.insert_rows(insert_at_row)
     col = 1
     for fill, label in _COMMISSION_SUMMARY_LEGEND_ITEMS:
@@ -203,6 +239,7 @@ def add_commission_summary_color_legend(
         ws.cell(row=insert_at_row, column=col + 1, value=label)
         col += 2
     wb.save(workbook_path)
+    return True
 
 
 def highlight_commission_summary_mismatches(
@@ -217,7 +254,7 @@ def highlight_commission_summary_mismatches(
 ) -> int:
     """Highlight parity mismatch cells in an exported 提成汇总 workbook."""
     mismatch_list = list(mismatches)
-    compare_col_set = set(compare_columns)
+    compare_col_set = expand_highlight_columns(compare_columns)
 
     wb = load_workbook(workbook_path)
     if sheet_name not in wb.sheetnames:
@@ -244,8 +281,10 @@ def highlight_commission_summary_mismatches(
     highlighted = 0
     for mismatch in mismatch_list:
         row_idx = row_index.get(mismatch.join_values)
+        if row_idx is None:
+            continue
         col_idx = col_map.get(mismatch.column)
-        if row_idx is None or col_idx is None:
+        if col_idx is None:
             continue
         cell = ws.cell(row=row_idx, column=col_idx)
         cell.fill = PARITY_MISMATCH_FILL
@@ -262,6 +301,7 @@ def highlight_commission_summary_deferred_cells(
     deferred_cells: dict[str, frozenset[str]],
     *,
     static_cells: dict[tuple[str, str], frozenset[str]] | None = None,
+    deferred_reasons: dict[str, dict[str, str]] | None = None,
     role_title: str = "销售顾问",
     header_row: int = 2,
     data_start_row: int = 3,
@@ -288,13 +328,14 @@ def highlight_commission_summary_deferred_cells(
 
     name_col = col_map.get("姓名")
     role_col = col_map.get("职务")
+    shop_col = col_map.get("店别")
     if name_col is None or role_col is None:
         wb.save(workbook_path)
         return 0
 
     deferred_columns = {col for cols in deferred_cells.values() for col in cols}
     static_columns = {col for cols in static_cells.values() for col in cols}
-    highlight_columns = deferred_columns | static_columns
+    highlight_columns = expand_highlight_columns(deferred_columns | static_columns)
 
     for row_idx in range(data_start_row, ws.max_row + 1):
         for col_name in highlight_columns:
@@ -313,6 +354,11 @@ def highlight_commission_summary_deferred_cells(
     for row_idx in range(data_start_row, ws.max_row + 1):
         name = normalize_name(ws.cell(row=row_idx, column=name_col).value)
         role = normalize_name(ws.cell(row=row_idx, column=role_col).value) or ""
+        shop = (
+            normalize_name(ws.cell(row=row_idx, column=shop_col).value)
+            if shop_col is not None
+            else None
+        )
         if name is None:
             continue
 
@@ -323,7 +369,8 @@ def highlight_commission_summary_deferred_cells(
         static_only = static_cols - deferred_cols
 
         for col_name in static_only:
-            col_idx = col_map.get(col_name)
+            display_col = highlight_column_for_row(shop, role, col_name)
+            col_idx = col_map.get(display_col)
             if col_idx is None:
                 continue
             cell = ws.cell(row=row_idx, column=col_idx)
@@ -332,12 +379,19 @@ def highlight_commission_summary_deferred_cells(
             highlighted += 1
 
         for col_name in deferred_cols:
-            col_idx = col_map.get(col_name)
+            display_col = highlight_column_for_row(shop, role, col_name)
+            col_idx = col_map.get(display_col)
             if col_idx is None:
                 continue
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.fill = MANUAL_DEFERRED_FILL
-            cell.comment = Comment(deferred_comment, "对账")
+            reason = (deferred_reasons or {}).get(name, {}).get(col_name)
+            comment_text = (
+                f"{deferred_comment}\n原因: {reason.strip()}"
+                if reason
+                else deferred_comment
+            )
+            cell.comment = Comment(comment_text, "对账")
             highlighted += 1
 
     wb.save(workbook_path)
@@ -355,8 +409,6 @@ def add_commission_summary_annotations(
 ) -> int:
     """Highlight formula-anomaly cells and attach Excel comments (批注) in 提成汇总."""
     ann_list = list(annotations)
-    if not ann_list:
-        return 0
 
     wb = load_workbook(workbook_path)
     if sheet_name not in wb.sheetnames:
@@ -370,13 +422,13 @@ def add_commission_summary_annotations(
         wb.save(workbook_path)
         return 0
 
-    annotated_columns = {ann.column for ann in ann_list}
-
+    # Clear stale orange fills on all advisor rows (not only columns in this batch).
     for row_idx in range(data_start_row, ws.max_row + 1):
-        for col_name in annotated_columns:
-            col_idx = col_map.get(col_name)
-            if col_idx is None:
-                continue
+        role = normalize_name(ws.cell(row=row_idx, column=role_col).value)
+        if role != role_title:
+            continue
+        for col_name in col_map:
+            col_idx = col_map[col_name]
             cell = ws.cell(row=row_idx, column=col_idx)
             if (
                 cell.fill
@@ -384,8 +436,11 @@ def add_commission_summary_annotations(
                 and getattr(cell.fill.start_color, "rgb", None) == FORMULA_ANOMALY_FILL_RGB
             ):
                 cell.fill = PatternFill()
-            if cell.comment is not None:
                 cell.comment = None
+
+    if not ann_list:
+        wb.save(workbook_path)
+        return 0
 
     by_name: dict[str, list[CommissionSummaryAnnotation]] = {}
     for ann in ann_list:

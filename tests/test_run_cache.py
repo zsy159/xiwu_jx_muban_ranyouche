@@ -200,6 +200,7 @@ class SalesPipelineOnlyFilterTests(unittest.TestCase):
         }
         pipeline.summary_builder = MagicMock()
         pipeline.summary_builder.export_excel = MagicMock()
+        pipeline.summary_builder._align_to_template = lambda frame: frame
 
         def fake_runner(ctx: dict) -> ModuleResult:
             if ctx.get("_overlay_key") == "sales-advisor":
@@ -220,6 +221,8 @@ class SalesPipelineOnlyFilterTests(unittest.TestCase):
         ), patch(
             "salary_pipeline.pipelines.sales.PERFORMANCE_OVERLAY_REGISTRY",
             registry,
+        ), patch(
+            "salary_pipeline.pipelines.sales.apply_commission_summary_highlighting",
         ):
             result = pipeline.run(from_stage="hub", only=["sales-advisor"])
 
