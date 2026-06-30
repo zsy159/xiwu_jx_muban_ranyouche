@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+*.egg-info/
+.pytest_cache/
+
+# 运行产出（保留目录结构可用 .gitkeep）
+output/**/*
+!output/**/.gitkeep
+
+# 可选：原始 Excel 含敏感薪酬数据时不提交
+# data/raw/**/*
+# !data/raw/**/.gitkeep

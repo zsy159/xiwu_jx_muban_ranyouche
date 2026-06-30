@@ -1,0 +1,50 @@
+# 招聘 — 跨版式字段拉通注册表
+# 团队分配：个人提成 = 到岗数 × 单人招聘提成 × 分配比例
+
+family_id: recruit
+family_label: 招聘
+rules_sheet: 招聘
+
+templates:
+  team_allocation:
+    label: 团队分配
+
+sections:
+  - id: team_allocation
+    label: 团队分配块（S/T/U/V/W）
+    section_note: 团队锚点 S4/T4/U4；各人分配比例 V 列、个人提成 W 列
+    fields:
+      - id: onboard_count
+        label: 到岗数
+        input_attr: onboard_count
+        value_type: number
+        applicable: [team_allocation]
+        excel_col: S
+
+      - id: commission_per_hire
+        label: 单人招聘提成
+        input_attr: commission_per_hire
+        value_type: number
+        applicable: [team_allocation]
+        excel_col: T
+
+      - id: total_commission
+        label: 团队提成合计
+        input_attr: total_commission
+        value_type: number
+        applicable: [team_allocation]
+        excel_col: U
+
+      - id: allocation_ratio
+        label: 分配比例
+        input_attr: allocation_ratio
+        value_type: number
+        applicable: [team_allocation]
+        excel_col: V
+
+      - id: personal_commission
+        label: 个人提成
+        input_attr: ""
+        matrix_only: true
+        applicable: [team_allocation]
+        excel_col: W

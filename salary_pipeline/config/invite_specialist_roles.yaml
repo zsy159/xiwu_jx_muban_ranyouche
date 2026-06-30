@@ -1,0 +1,85 @@
+# 邀约专员提成子表 — 三家主体、三套版式（2026-05 金标准）
+#
+# 西物（武侯DCC）5 人：子表行 3–7，AD = I+L+O+T+W+Z+AC+F
+# 超市（机场DCC）3 人：子表行 11–13，Y = I+K×J+…−X
+# 崇州（直营店）1 人：子表行 17，AD = I+L+O+T+W+Z−AC−F → Hub AK
+
+roles:
+  - name: 杨婷
+    title: 邀约专员
+    company: 崇州
+    store: 崇州直营店
+    template: chongzhou_invite
+    hub_column: 整车完成考核
+    excel_block:
+      row: 17
+    defaults:
+      invite_unit_rate: 60
+      deal_unit_rate: 35
+
+  - name: 金玉梅
+    title: DCC邀约专员
+    company: 西物
+    store: 武侯DCC
+    template: xiwu_dcc
+    excel_block:
+      row: 3
+    defaults:
+      invite_unit_rate: 60
+      deal_unit_rate: 40
+
+  - name: 周思雨
+    title: DCC邀约专员
+    company: 西物
+    store: 武侯DCC
+    template: xiwu_dcc
+    excel_block:
+      row: 4
+
+  - name: 陈文霜
+    title: DCC邀约专员
+    company: 西物
+    store: 武侯DCC
+    template: xiwu_dcc
+    excel_block:
+      row: 5
+
+  - name: 杜小红
+    title: DCC邀约专员
+    company: 西物
+    store: 武侯DCC
+    template: xiwu_dcc
+    excel_block:
+      row: 6
+
+  - name: 周梅
+    title: DCC邀约专员
+    company: 西物
+    store: 武侯DCC
+    template: xiwu_dcc
+    excel_block:
+      row: 7
+
+  - name: 李春梅
+    title: DCC邀约专员
+    company: 超市
+    store: 机场DCC
+    template: chaoshi_dcc
+    excel_block:
+      row: 11
+
+  - name: 魏艳
+    title: DCC邀约专员
+    company: 超市
+    store: 机场DCC
+    template: chaoshi_dcc
+    excel_block:
+      row: 12
+
+  - name: 谷雨
+    title: DCC邀约专员
+    company: 超市
+    store: 机场DCC
+    template: chaoshi_dcc
+    excel_block:
+      row: 13

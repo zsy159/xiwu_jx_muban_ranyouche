@@ -1,0 +1,117 @@
+# 客户专员 — 跨版式字段拉通注册表
+# 左侧行项（必做 / 机动 / 增值）由 calculators/customer_specialist/line_item_catalog.py 注入
+
+family_id: customer_specialist
+family_label: 客户专员
+rules_sheet: 客户部提成
+
+templates:
+  left_line_items:
+    label: 左侧行项（主管）
+  left_and_baoke:
+    label: 左侧行项 + 保客块
+  activity_summary:
+    label: 活动合计行
+  baoke_store:
+    label: 保客营销店面块
+
+sections:
+  - id: left_block
+    label: 左侧行项（由目录注入）
+    section_note: 运行时展开为必做 / 机动 / 增值 三组；见 line_item_catalog.py
+    fields: []
+  - id: activity_row
+    label: 周舟活动行（K–AB）
+    fields:
+      - id: callback_counts
+        label: 回访量（潜客/5天/30天/战败）
+        input_attr: callback_counts
+        matrix_only: true
+        applicable: [activity_summary]
+
+      - id: visit_count
+        label: 面访量
+        input_attr: visit_count
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: Q
+
+      - id: group_chat_count
+        label: 群聊建立量
+        input_attr: group_chat_count
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: S
+
+      - id: birthday_count
+        label: 生日关怀接通量
+        input_attr: birthday_count
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: U
+
+      - id: reputation_posts
+        label: 口碑发帖量
+        input_attr: reputation_posts
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: W
+
+      - id: complaint_handling
+        label: 投诉处理
+        input_attr: complaint_handling
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: Y
+
+      - id: satisfaction_bonus
+        label: 销售满意度绩效
+        input_attr: satisfaction_bonus
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: AA
+
+      - id: baoke_marketing_flat
+        label: 保客营销（活动行）
+        input_attr: baoke_marketing_flat
+        value_type: number
+        applicable: [activity_summary]
+        excel_col: AB
+
+  - id: baoke_block
+    label: 保客营销块（AN–AT）
+    section_note: 四行指标 + 绩效合计；邓芳/周舟部分金额写入 hub
+    fields:
+      - id: baoke_metrics
+        label: 保客指标行
+        input_attr: baoke_metrics
+        value_type: baoke_metrics
+        applicable: [left_and_baoke, activity_summary, baoke_store]
+
+  - id: hub_output
+    label: Hub 输出列
+    section_note: 非 SUMIF；按人直引子表单元格
+    fields:
+      - id: hub_vehicle_fixed
+        label: 整车绩效（固定）
+        input_attr: ""
+        matrix_only: true
+        applicable: [left_line_items]
+
+      - id: hub_addon_left
+        label: 加装绩效（左侧合计 F42/H42）
+        input_attr: ""
+        matrix_only: true
+        applicable: [left_line_items, left_and_baoke]
+
+      - id: hub_permission_balance
+        label: 权限结余绩效（保客 AT）
+        input_attr: ""
+        matrix_only: true
+        applicable: [left_and_baoke]
+
+      - id: hub_addon_activity
+        label: 加装绩效（活动 AD3）
+        input_attr: ""
+        matrix_only: true
+        applicable: [activity_summary]

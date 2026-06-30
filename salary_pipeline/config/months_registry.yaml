@@ -1,0 +1,11 @@
+# 账期注册表 — 观察台切换月份、预留导入其他账期
+default_month: "2026-05"
+
+months:
+  "2026-05":
+    label: "2026年05月"
+    config: "month.yaml"
+    status: active
+    sources:
+      raw_dir: "data/raw/2026-05"
+      output_dir: "output/2026-05"

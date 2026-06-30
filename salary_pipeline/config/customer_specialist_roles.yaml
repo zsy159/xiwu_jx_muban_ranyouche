@@ -1,0 +1,76 @@
+# 客户关系部 — 岗位模板与 Excel 块映射（2026-05 金标准）
+
+roles:
+  - name: 张保珍
+    title: 主管
+    template: left_line_items
+    person_column: zhangbaozhen
+    defaults:
+      fixed_vehicle_performance: 2000
+    hub_mapping:
+      整车绩效: { type: fixed, value: 2000 }
+      加装绩效: { type: cell, row: 42, col: 8 }
+    golden_cells:
+      加装绩效: H42
+
+  - name: 邓芳
+    title: 专员
+    template: left_and_baoke
+    person_column: dengfang
+    left_rows: [4, 41]
+    baoke_block:
+      metric_rows: [3, 6]
+      total_row: 7
+      store_label: 店面——中国星武侯
+    hub_mapping:
+      权限结余绩效: { type: cell, row: 7, col: 46 }
+      加装绩效: { type: cell, row: 42, col: 6 }
+    golden_cells:
+      权限结余绩效: AT7
+      加装绩效: F42
+
+  - name: 周舟
+    title: 专员
+    template: activity_summary
+    activity_row: 3
+    baoke_block:
+      metric_rows: [34, 37]
+      total_row: 38
+      store_label: 店面——中国星机场
+    hub_mapping:
+      加装绩效: { type: cell, row: 3, col: 30 }
+    golden_cells:
+      加装绩效: AD3
+
+  - name: 李璐秀
+    title: 专员
+    template: baoke_store
+    baoke_block:
+      metric_rows: [10, 13]
+      total_row: 14
+      store_label: 店面——银河B武侯
+    hub_linked: false
+    golden_cells:
+      保客合计: AT14
+
+  - name: 郭静
+    title: 专员
+    template: baoke_store
+    baoke_block:
+      metric_rows: [18, 21]
+      total_row: 22
+      store_label: 店面——银河A武侯
+    hub_linked: false
+    golden_cells:
+      保客合计: AT22
+
+  - name: 古瑞婷
+    title: 专员
+    template: baoke_store
+    baoke_block:
+      metric_rows: [26, 29]
+      total_row: 30
+      store_label: 店面——银河B机场
+    hub_linked: false
+    golden_cells:
+      保客合计: AT30

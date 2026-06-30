@@ -1,0 +1,126 @@
+# Hub W–AI 绩效列：按岗位族分治（对齐 提成依据.xlsx / commission_rules manifest）
+#
+# 设计原则：
+# - 不能像 F–P 那样指望 HubFormulaEngine 一套拓扑公式覆盖全员
+# - 各岗位族的计算方法来自 提成依据 中对应 sheet（与 modules/ 业务模块一致）
+# - HubFormulaEngine 仅作「拓扑回放」过渡层；岗位模块算出的结果应写入对应 hub 列
+#
+# manifest: salary_pipeline/config/commission_rules/manifest.yaml
+
+fallback:
+  mode: topology_replay
+  note: 未登记岗位族时，暂用 HubFormulaEngine 按 Excel 公式格回放
+
+role_families:
+  新媒体:
+    module: new_media_performance
+    rules_sheet: 新媒体
+    algorithm: calculator_with_sumif_fallback
+    match:
+      店别: 新媒体销售部
+    source:
+      workbook: sales
+      sheet: 新媒体
+      name_col: Y
+      value_col: AB
+    hub_columns:
+      - 整车绩效
+    parity_gate: true
+
+  销售顾问:
+    module: sales_advisor_performance
+    rules_sheet: 销售提成标准
+    algorithm: perf_sheet_sumif_with_completion_rate
+    match:
+      职务: 销售顾问
+    source:
+      workbook: sales
+      sheet: 绩效整理表
+      advisor_col: P
+    hub_columns:
+      - 整车绩效
+      - 加装绩效
+      - 保险绩效
+      - 延保提成
+      - 特殊车型+指定车型
+      - 金融绩效
+      - 爱车宝绩效
+      - 上户绩效
+    # 164 条提成标准 ≠ 49 可比 Hub 行；仅 hub_linked 写 overlay（见 sales_advisor_roles.yaml）
+    parity_gate: true
+
+  销售主管:
+    rules_sheet: 销售提成标准
+    hub_columns:
+      - 整车绩效
+      - 加装绩效
+      - 保险绩效
+
+  邀约专员:
+    module: invite_specialist_performance
+    rules_sheet: 邀约专员提成
+    algorithm: calculator_with_sumif_fallback
+    match:
+      职务:
+        - DCC邀约专员
+        - 邀约专员
+    source:
+      workbook: sales
+      sheet: 邀约专员提成
+      name_col: C
+      value_col: AF
+    hub_columns:
+      - 整车绩效
+      - 整车完成考核
+    parity_gate: true
+
+  客户专员:
+    module: customer_specialist_performance
+    rules_sheet: 客户部提成
+    algorithm: cell_ref_subsheet
+    match:
+      店别: 客户关系部
+    hub_columns:
+      - 整车绩效
+      - 权限结余绩效
+      - 加装绩效
+    # W–AI 已对齐（2026-06-24）：张保珍 / 邓芳 / 周舟 共 3 行在提成汇总
+    # 李璐秀 / 郭静 / 古瑞婷 仅子表算薪，不在提成汇总（hub_linked: false）
+    parity_gate: true
+
+  直营店经理:
+    module: direct_store_manager_performance
+    rules_sheet: 直营店经理提成 (财务)
+    algorithm: store_block_with_attach_row
+    match:
+      姓名:
+        - 朱剑波
+        - 孙伟
+        - 吴思超
+        - 黎明朗
+        - 钟涛
+    hub_columns:
+      - 整车完成考核
+    parity_gate: true
+
+  招聘:
+    module: recruit_performance
+    rules_sheet: 销售提成标准
+    algorithm: team_allocation
+    match:
+      店别: 行政人事部
+      姓名:
+        - 周小红
+        - 刘晓琴
+        - 何婷婷
+    source:
+      workbook: sales
+      sheet: 招聘
+      team_block_cols:
+        onboard_count: S
+        commission_per_hire: T
+        allocation: V
+        amount: W
+    hub_columns:
+      - 保险绩效
+    parity_gate: true

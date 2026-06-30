@@ -1,0 +1,50 @@
+# 招聘岗位族 — 团队分配块（2026-05 金标准）
+#
+# 公式：个人提成 = 到岗数 × 单人招聘提成 × 分配比例
+# Hub（3 人）：保险绩效（Z）= 招聘子表 W 列（与公式结果一致）
+# 李玲：子表有分配行，不在提成汇总（hub_linked: false）
+
+team_block:
+  sheet: 招聘
+  name_col: Q
+  onboard_count_col: S
+  commission_per_hire_col: T
+  total_col: U
+  allocation_col: V
+  amount_col: W
+
+roles:
+  - name: 周小红
+    title: 行政主管
+    store: 行政人事部
+    template: team_allocation
+    hub_column: 保险绩效
+    hub_excel_row: 197
+    golden_cells:
+      提成金额: W4
+
+  - name: 何婷婷
+    title: 行政助理
+    store: 行政人事部
+    template: team_allocation
+    hub_column: 保险绩效
+    hub_excel_row: 199
+    golden_cells:
+      提成金额: W5
+
+  - name: 李玲
+    title: 招聘专员
+    store: 行政人事部
+    template: team_allocation
+    hub_linked: false
+    golden_cells:
+      提成金额: W6
+
+  - name: 刘晓琴
+    title: 行政助理
+    store: 行政人事部
+    template: team_allocation
+    hub_column: 保险绩效
+    hub_excel_row: 198
+    golden_cells:
+      提成金额: W7

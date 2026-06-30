@@ -1,0 +1,14 @@
+# 观察台开发：保存 Python 文件后自动重跑（热重载）
+# https://docs.streamlit.io/develop/concepts/configuration/config.toml
+#
+# 说明：Streamlit 默认只监视主脚本目录 (salary_pipeline/app) 与已 import 且落在
+# PYTHONPATH 下的模块；salary_pipeline/pipelines 等需 folderWatchList（绝对路径）。
+# 请用项目根执行：.venv/bin/python run_console.py
+
+[server]
+runOnSave = true
+# auto 优先 watchdog；异常时可改为 poll
+fileWatcherType = "auto"
+
+[runner]
+fastReruns = true

@@ -1,0 +1,81 @@
+# 观察台锚点表与金标准引导说明（财务向文案）
+
+anchors:
+  hub:
+    id: hub
+    label: 提成汇总
+    output_key: commission_summary_file
+    parity_section: parity
+    golden_sheet_from: commission_summary_sheet
+    golden_workbook_key: sales
+    warnings_file: formula_warnings.txt
+    computed_match: 提成汇总.xlsx
+
+  xw_payout:
+    id: xw_payout
+    label: XW提成-发
+    output_key: xw_payout
+    parity_section: payout_parity
+    golden_sheet: XW提成-发
+    golden_workbook_key: sales
+    warnings_file: formula_warnings_xw_payout.txt
+    computed_match: XW提成-发.xlsx
+
+  aftersales_wuhou:
+    id: aftersales_wuhou
+    label: 武侯售后
+    output_key: aftersales_wuhou
+    parity_section: aftersales_parity
+    store: wuhou
+    warnings_file: formula_warnings_wuhou.txt
+    computed_match: 武侯售后.xlsx
+
+  aftersales_airport:
+    id: aftersales_airport
+    label: 机场售后
+    output_key: aftersales_airport
+    parity_section: aftersales_parity
+    store: airport
+    warnings_file: formula_warnings_airport.txt
+    computed_match: 机场售后.xlsx
+
+golden_bootstrap:
+  finance_intro: |
+    「金标准」指当月终稿 Excel 中的现成数值。系统尚未完全算出时，会临时借用这些数，
+    对账界面中系统列为空而金标准有数，通常属于过渡状态而非财务录入错误。
+  sections:
+    - table: 提成汇总
+      items:
+        - range: F–P
+          status: partial
+          finance_note: 多数岗位已由系统计算；部分管理岗为 Excel 手工填入
+        - range: W–AI
+          status: partial
+          finance_note: 已纳入 parity.performance_columns 跟踪对账；按岗位族逐步实现（见 hub_performance.yaml），发薪仍以 XW 验收列为准
+        - range: AK–AR
+          status: golden
+          finance_note: 发薪汇总块，待 hub 全量计算后替换
+    - table: XW提成-发
+      items:
+        - range: 提成汇总 SUMIF 源
+          status: golden
+          finance_note: 默认使用金标准 hub；端到端试跑时可切换为计算版 hub
+        - range: 个税 AZ/BA
+          status: golden
+          finance_note: 个税速算表来自 Excel 静态区域
+
+# 差异探索：绩效块列名（与 hub HUB_COLUMN_MAP 一致）
+hub_performance_columns:
+  - 整车绩效
+  - 权限结余绩效
+  - 加装绩效
+  - 保险绩效
+  - 金融绩效
+  - 爱车宝绩效
+  - 上户绩效
+  - 盈利产品绩效
+  - 延保提成
+  - 特殊车型+指定车型
+  - 座位险提成
+  - 二手车提成
+  - 玻碎险提成

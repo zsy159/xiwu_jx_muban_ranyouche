@@ -1,0 +1,20 @@
+source_workbook: /Users/macstudio2/Desktop/projects/jx_muban_ranyouche/data/raw/2026-05/提成依据.xlsx
+sheets:
+  销售提成标准:
+    file: 销售提成标准.json
+    record_count: 164
+  售后工资提成标准:
+    file: 售后工资提成标准.json
+    record_count: 128
+  邀约专员提成:
+    file: 邀约专员提成.json
+    record_count: 27
+  客户部提成:
+    file: 客户部提成.json
+    record_count: 96
+  新媒体:
+    file: 新媒体.json
+    record_count: 58
+  直营店经理提成 (财务):
+    file: 直营店经理提成 (财务).json
+    record_count: 19

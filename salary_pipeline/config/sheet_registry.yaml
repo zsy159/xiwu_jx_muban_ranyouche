@@ -1,0 +1,61 @@
+# 表角色：
+#   input   = 当月原始数据
+#   formula = 中间公式表（由模块重算）
+#   hub     = 汇总枢纽（跨岗位/跨店聚合，供各「发」表取数；非最终发薪表）
+#   output  = 最终发薪表（财务/人力实际使用，禁止作为输入导入）
+
+sales_workbook:
+  终端明细表:
+    role: input
+    header_row: 1
+  整车成本:
+    role: input
+    header_row: 1
+  按揭明细:
+    role: input
+    header_row: 1
+  保险明细:
+    role: input
+    header_row: 1
+  装饰台账:
+    role: input
+    header_row: 1
+  系统销售毛利:
+    role: input
+    header_row: 2
+    note: 订单骨架 O/G/P + INDEX/MATCH 顾问列（Phase B Slice 4）
+  销售任务及完成率:
+    role: formula
+    header_row: 1
+    produced_by: sales_task_module
+  绩效整理表:
+    role: formula
+    header_row: 1
+    produced_by: performance_module
+  渗透率:
+    role: formula
+    header_row: 1
+    produced_by: penetration_module
+  提成汇总:
+    role: hub
+    header_row: 2
+    data_start_row: 3
+    produced_by: commission_summary_builder
+    note: 汇总枢纽；约 55% 的「发」表公式格通过 SUMIF 从此表取数；少量列（如 BB/BC）回引各「发」表形成 Excel 环
+  XW提成-发:
+    role: output
+    header_row: 1
+    produced_by: xw_payout_builder
+    note: 西物超市最终发薪表；主数据来自提成汇总
+  CS提成-发:
+    role: output
+    header_row: 1
+    produced_by: cs_payout_builder
+  直营店提成-发:
+    role: output
+    header_row: 1
+    produced_by: direct_store_payout_builder
+  XW提成-翼真发:
+    role: output
+    header_row: 1
+    produced_by: yizhen_payout_builder

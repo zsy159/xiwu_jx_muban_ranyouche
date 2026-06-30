@@ -1,0 +1,46 @@
+# 直营店经理提成子表 — 5 店销售经理（2026-05 金标准）
+#
+# Hub 列：整车完成考核（AK）← 子表 R 列「提成合计」
+# 钟涛（华阳）= R5 + R6（华阳直营店 + 华阳领克）
+
+roles:
+  - name: 朱剑波
+    title: 销售经理
+    store: 崇州直营店
+    template: store_block
+    hub_column: 整车完成考核
+    excel_blocks:
+      - row: 3
+
+  - name: 孙伟
+    title: 销售经理
+    store: 大邑直营店
+    template: store_block
+    hub_column: 整车完成考核
+    excel_blocks:
+      - row: 4
+
+  - name: 钟涛
+    title: 销售经理
+    store: 华阳直营店
+    template: store_block
+    hub_column: 整车完成考核
+    excel_blocks:
+      - row: 5
+      - row: 6
+
+  - name: 黎明朗
+    title: 销售经理
+    store: 彭州直营店
+    template: store_block
+    hub_column: 整车完成考核
+    excel_blocks:
+      - row: 7
+
+  - name: 吴思超
+    title: 销售经理
+    store: 邛崃直营店
+    template: store_block
+    hub_column: 整车完成考核
+    excel_blocks:
+      - row: 8

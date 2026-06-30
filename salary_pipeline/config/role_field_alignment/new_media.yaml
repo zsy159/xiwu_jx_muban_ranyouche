@@ -1,0 +1,184 @@
+# 新媒体 — 跨版式字段拉通注册表
+# 原则：所有岗位族共用同一套字段 id；某版式无该列时界面留空并标记「不适用」
+
+family_id: new_media
+family_label: 新媒体
+rules_sheet: 新媒体
+
+templates:
+  live_anchor:
+    label: 新媒体主播
+  video_ops:
+    label: 视频运维专员
+  ops_manager:
+    label: 运维主管
+  manual:
+    label: 手工录入
+
+sections:
+  - id: kpi_metrics
+    label: 考核指标（D–G）
+    section_note: 各版式 D–G 列语义不同；目标行 / 实际行成对填写
+    fields:
+      - id: live_sessions
+        label: 直播场次
+        input_attr: live_sessions
+        value_type: metric_pair
+        applicable: [live_anchor, ops_manager]
+        excel_col: D
+
+      - id: leads
+        label: 直播线索
+        input_attr: leads
+        value_type: metric_pair
+        applicable: [live_anchor, ops_manager]
+        excel_col: E
+        label_by_template:
+          ops_manager: 线索量
+
+      - id: fans
+        label: 粉丝关注
+        input_attr: fans
+        value_type: metric_pair
+        applicable: [live_anchor]
+        not_applicable_note:
+          video_ops: 短视频版式 F 列为粉丝关注（不同指标族）
+          ops_manager: 运维主管版式无此项
+          manual: 手工录入无考核指标
+        excel_col: F
+
+      - id: videos_publication
+        label: 视频创作发布量
+        input_attr: videos
+        value_type: metric_pair
+        applicable: [live_anchor, video_ops]
+        excel_col: D
+        label_by_template:
+          video_ops: 视频发布数
+        not_applicable_note:
+          ops_manager: 运维主管 E 列为视频创作
+
+      - id: play_count
+        label: 播放量
+        input_attr: play_count
+        value_type: metric_pair
+        applicable: [video_ops]
+        excel_col: E
+
+      - id: short_video_fans
+        label: 短视频粉丝
+        input_attr: short_video_fans
+        value_type: metric_pair
+        applicable: [video_ops]
+        excel_col: F
+
+      - id: xiaohongshu
+        label: 小红书笔记
+        input_attr: xiaohongshu
+        value_type: metric_pair
+        applicable: [video_ops]
+        excel_col: G
+
+      - id: video_creations
+        label: 视频创作
+        input_attr: video_creations
+        value_type: metric_pair
+        applicable: [ops_manager]
+        excel_col: E
+
+      - id: store_visits
+        label: 邀约到店
+        input_attr: store_visits
+        value_type: metric_pair
+        applicable: [ops_manager]
+        excel_col: G
+
+  - id: kpi_base_terminal
+    label: 岗位绩效与终端
+    fields:
+      - id: kpi_base
+        label: 岗位绩效 KPI 基数
+        input_attr: kpi_base
+        value_type: number
+        applicable: [live_anchor, video_ops, ops_manager]
+        excel_col: H
+
+      - id: terminal_unit_rate
+        label: 终端提成单价（元/台）
+        input_attr: terminal_unit_rate
+        value_type: number
+        applicable: [live_anchor, video_ops, ops_manager]
+        excel_col: J
+
+      - id: terminal_count
+        label: 终端完成台数
+        input_attr: terminal_count
+        value_type: number
+        applicable: [live_anchor, video_ops, ops_manager]
+        excel_col: K
+
+  - id: anchor_bonus
+    label: 主播超额奖励
+    section_note: 场次超额仅王芝婕、蓝仁楷等 track_session_excess 岗位适用
+    fields:
+      - id: lead_excess_unit_rate
+        label: 线索超额单价（元/条）
+        input_attr: lead_excess_unit_rate
+        value_type: number
+        applicable: [live_anchor]
+        excel_col: L
+        default: 10
+
+      - id: session_excess_unit_rate
+        label: 场次超额单价（元/场）
+        input_attr: session_excess_unit_rate
+        value_type: number
+        applicable: [live_anchor]
+        excel_col: N
+        default: 100
+
+      - id: track_session_excess
+        label: 计入场次超额奖励
+        input_attr: track_session_excess
+        value_type: checkbox
+        applicable: [live_anchor]
+
+  - id: video_ops_bonus
+    label: 短视频奖励
+    fields:
+      - id: quality_video_unit_rate
+        label: 优质视频单价
+        input_attr: quality_video_unit_rate
+        value_type: number
+        applicable: [video_ops]
+        excel_col: L
+        default: 50
+
+      - id: quality_video_count
+        label: 优质视频条数
+        input_attr: quality_video_count
+        value_type: number
+        applicable: [video_ops]
+        excel_col: M
+
+      - id: excess_video_unit_rate
+        label: 超额视频单价
+        input_attr: excess_video_unit_rate
+        value_type: number
+        applicable: [video_ops]
+        excel_col: N
+        default: 50
+
+  - id: manual_entry
+    label: 手工录入
+    fields:
+      - id: performance_salary
+        label: 绩效薪资 / 整车绩效
+        input_attr: performance_salary
+        value_type: number
+        applicable: [manual]
+        not_applicable_note:
+          live_anchor: 主播版式由公式计算 Q 列
+          video_ops: 短视频版式由公式计算 Q 列
+          ops_manager: 运维主管版式由公式计算 Q 列
+        excel_col: AB

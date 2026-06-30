@@ -1,0 +1,101 @@
+# 销售顾问岗位族 — Phase C 业务模块（2026-05 金标准）
+#
+# hub_linked 策略（README N5）：
+# - 提成汇总 职务=销售顾问 且姓名非「空白」→ hub_linked: true（约 49 人可比）
+# - 销售提成标准 JSON 共 53 条顾问记录 + 其余职务混排 → 多数仅子表算薪
+# - 子表全员算薪、部分写 Hub：与招聘/客户专员相同模式
+#
+# 公式来源：Hub topology 解析 → calculators/sales_advisor/topology_specs.py
+# 数据来源：Phase B computed_perf_frame（绩效整理表）+ 销售提成标准（闭包列 AG 等已在 builder 内化）
+
+# 模块 overlay + parity_gate 对账列（含图中五列 W/Y/Z/AE/AF）
+hub_columns:
+  - 整车绩效
+  - 加装绩效
+  - 保险绩效
+  - 延保提成
+  - 特殊车型+指定车型
+  - 金融绩效
+  - 爱车宝绩效
+  - 上户绩效
+
+# 图中五列 · 金标准手工格 — 对账暂跳过，待业务确认后再建模
+wa_parity_deferred:
+  - name: 韩柏成
+    columns:
+      整车绩效: 翼真店 AG/W 与提成标准 lookup 不一致（金标准手工）
+      保险绩效: Hub Z134 = SUMIF(AJ)+600 手工常数
+      加装绩效: Y134=1000 静态格无公式
+  - name: 沈燕1
+    columns:
+      整车绩效: 翼真店 AG 金标准与系统提成标准不一致
+      保险绩效: 翼真保险绩效金标准手工录入
+  - name: 唐操
+    columns:
+      整车绩效: 渠道 I 个案（L6T78XCZ5TY782006），待核对后修 order_context
+
+# 门店块顾问：整车绩效乘 BA 店别完成率（非个人 H）
+store_block_pattern:
+  multiply_ref_prefix: BA
+
+# 仅子表、不进 Hub 的顾问样例（销售提成标准有条目但无提成汇总行）
+subsheet_only_examples:
+  - 徐荣尧
+  - 康鳞波
+
+# hub_linked 顾问登记（自动生成可比人；hub_excel_row 供观察台金标准对照）
+roles:
+  - {name: 唐鹏, hub_linked: true, hub_excel_row: 4}
+  - {name: 赵思梵, hub_linked: true, hub_excel_row: 5}
+  - {name: 陈勇建, hub_linked: true, hub_excel_row: 6}
+  - {name: 李智洪, hub_linked: true, hub_excel_row: 7}
+  - {name: 宁袁, hub_linked: true, hub_excel_row: 8}
+  - {name: 程羊, hub_linked: true, hub_excel_row: 9}
+  - {name: 常涛, hub_linked: true, hub_excel_row: 10}
+  - {name: 袁萍, hub_linked: true, hub_excel_row: 11}
+  - {name: 叶荣鹏, hub_linked: true, hub_excel_row: 13}
+  - {name: 高东琴, hub_linked: true, hub_excel_row: 14}
+  - {name: 马勇, hub_linked: true, hub_excel_row: 15}
+  - {name: 钟家林, hub_linked: true, hub_excel_row: 16}
+  - {name: 任和奎, hub_linked: true, hub_excel_row: 17}
+  - {name: 刘娅, hub_linked: true, hub_excel_row: 18}
+  - {name: 兰代全, hub_linked: true, hub_excel_row: 19}
+  - {name: 陈莉, hub_linked: true, hub_excel_row: 20}
+  - {name: 刘华, hub_linked: true, hub_excel_row: 21}
+  - {name: 张坤, hub_linked: true, hub_excel_row: 22}
+  - {name: 吴小琴, hub_linked: true, hub_excel_row: 24}
+  - {name: 丁小玲, hub_linked: true, hub_excel_row: 25}
+  - {name: 姚元利, hub_linked: true, hub_excel_row: 26}
+  - {name: 冯超, hub_linked: true, hub_excel_row: 27}
+  - {name: 黄军, hub_linked: true, hub_excel_row: 28}
+  - {name: 刘发, hub_linked: true, hub_excel_row: 29}
+  - {name: 陈林, hub_linked: true, hub_excel_row: 30}
+  - {name: 向兰, hub_linked: true, hub_excel_row: 31}
+  - {name: 刘波, hub_linked: true, hub_excel_row: 32}
+  - {name: 刘凤英, hub_linked: true, hub_excel_row: 33}
+  - {name: 黄婷婷, hub_linked: true, hub_excel_row: 34}
+  - {name: 赵强, hub_linked: true, hub_excel_row: 35}
+  - {name: 熊俊杰, hub_linked: true, hub_excel_row: 36}
+  - {name: 莫晓何, hub_linked: true, hub_excel_row: 37}
+  - {name: 邱明杰, hub_linked: true, hub_excel_row: 38}
+  - {name: 蒲喜, hub_linked: true, hub_excel_row: 39}
+  - {name: 何宇, hub_linked: true, hub_excel_row: 92}
+  - {name: 何伟, hub_linked: true, hub_excel_row: 93}
+  - {name: 唐操, hub_linked: true, hub_excel_row: 94}
+  - {name: 母勇, hub_linked: true, hub_excel_row: 95}
+  - {name: 刘飞, hub_linked: true, hub_excel_row: 96}
+  - {name: 黄利君, hub_linked: true, hub_excel_row: 97}
+  - {name: 马攀, hub_linked: true, hub_excel_row: 98}
+  - {name: 易花贞子, hub_linked: true, hub_excel_row: 99}
+  - {name: 毛春秀, hub_linked: true, hub_excel_row: 100}
+  - {name: 廖晓军, hub_linked: true, hub_excel_row: 101}
+  - {name: 代力, hub_linked: true, hub_excel_row: 102}
+  - {name: 康鳞波, hub_linked: true, hub_excel_row: 103}
+  - {name: 吴嘉敏, hub_linked: true, hub_excel_row: 133}
+  - {name: 韩柏成, hub_linked: true, hub_excel_row: 134}
+  - {name: 沈燕1, hub_linked: true, hub_excel_row: 135}
+
+  # 销售提成标准有条目、不在提成汇总（hub_linked: false）
+  - {name: 徐荣尧, hub_linked: false, rules_sheet_row: 8}
+  - {name: 雷卓远, hub_linked: false}
+  - {name: 王泳文, hub_linked: false}

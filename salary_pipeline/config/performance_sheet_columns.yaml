@@ -1,0 +1,287 @@
+# 绩效整理表列注册 — Phase B 按 Hub 销售顾问闭包逐列内化
+# 金标准公式见 docs/iterations/sales-advisor/PHASE-B-PLAN.md
+
+sheet: 绩效整理表
+data_start_row: 3   # Excel 1-based; row 2 = headers
+join_key: O         # VIN — 多数明细 SUMIF 的 criteria 列
+
+# Slice 4：订单骨架 O/P/K/G（脱离金标准引导）
+order_skeleton:
+  billing_month: "2026-05"
+  primary_sheet: 系统销售毛利
+  terminal_sheet: 终端明细表   # BC 列 SUMIFS(终端明细表!P, C, O)；Slice 4 登记 ingestion
+  vehicle_order_type: 含整车订单
+  keys:
+    O: {source_sheet: 系统销售毛利, col: BD}
+    G: {source_sheet: 系统销售毛利, col: B}
+    P: {source_sheet: 系统销售毛利, col: BJ, formula: "=INDEX(系统销售毛利!BJ:BJ,MATCH(O,BD,0))"}
+    K: {default: 1}
+  # Hub 关联顾问别名 / 同人多单后缀（金标准 P ≠ BJ 的 11 处）
+  p_overrides_by_vin:
+    LB37852Z9TS016650: 余才万1
+    LB37822Z4TB021026: 余才万1
+    LB37822Z2TB048046: 余才万1
+    LB37722Z5TX312995: 袁萍
+    LB37722Z4TX319002: 袁萍
+    L6T7924Z0TD055703: 袁萍
+    LB37622Z5TX812173: 余才万3
+    L6T7622Z2TV010641: 余才万5
+    LB37824Z3TG031370: 余才万2
+    L6T798NEXTT751117: 沈燕1
+    L6T798NE3TT750696: 沈燕1
+  # 月末非 DC 订单号的服务补录行（G 为品类标签，K 空白）
+  supplement_rows:
+    - {vin: LB37822Z7TB046969, G: 置换服务}
+    - {vin: L6T7924Z2TD043276, G: 爱车保}
+    - {vin: LB37852D4TS070295, G: 置换佣金}
+    - {vin: LB37822Z9TB071663, G: 上户收入}
+    - {vin: L6T7922Z0TY870656, G: 上户收入}
+    - {vin: L6T7854ZXRD178888, G: 延保服务}
+    - {vin: LB37852Z8TS020222, G: 延保服务}
+    - {vin: LB37824Z3TG027772, G: 延保服务}
+    - {vin: LB37822Z0SB173688, G: 延保服务}
+    - {vin: LB37852ZXSS272486, G: 延保服务}
+    - {vin: LB37822Z3SB173314, G: 延保服务}
+  # 顾问级手工尾行（金标准绩效整理表无 VIN，仅 P+AI）
+  advisor_column_adjustments:
+    - {advisor: 熊俊杰, column: AI, amount: 240, note: "金标准无VIN手工尾行，影响 Hub 加装绩效"}
+
+# 盈利产品 AL：金标准对门店/分公司块 P 值不写公式（93 行），系统不算按揭 SUMIF
+profit_product_skip_p_values:
+  - 慧生
+  - 眉山分公司
+  - 豪明分公司武侯
+  - 雅安分公司
+  - 西物明睿超市
+  - 西物明睿
+  - 德阳分公司
+  - 豪明分公司机场
+  - 宜宾西联西物汽车
+  - 绵阳分公司
+  - 泸州分公司
+  - 宜宾西瑞吉利超市
+  - 宜宾西瑞西物汽车
+  - 李燕
+
+# 盈利产品 AL：金标准手工尾项调整（如薛祥建行 = SUMIF(...)-1229.5）
+profit_product_adjustments_by_vin:
+  L6T798NE4TT750321: -1229.5
+
+# 经理权限 X：金标准无公式，按 VIN 手工录入常数 1000（2026-05 样本月 59 笔）
+manager_permission_by_vin:
+  LB37852ZXTS061788: 1000
+  LB37852Z8TS063118: 1000
+  LB37852Z6TS063120: 1000
+  LB37852Z6SS238917: 1000
+  LB37852Z5TS057602: 1000
+  LB37852Z4TS057560: 1000
+  LB37822ZXTB082607: 1000
+  LB37822ZXTB065628: 1000
+  LB37822Z9TB045192: 1000
+  LB37822Z9TB017117: 1000
+  LB37822Z5TB079324: 1000
+  LB37822Z3TB041994: 1000
+  LB37822Z1TB071477: 1000
+  LB37822Z1TB045185: 1000
+  LB37822Z1TB023347: 1000
+  L6T7954Z4TD023791: 1000
+  L6T7954Z1TD020489: 1000
+  L6T7924Z8TD053309: 1000
+  L6T7924Z6TD054734: 1000
+  L6T7924Z4TD055977: 1000
+  L6T7924Z2TD055721: 1000
+  L6T7924Z1TD054852: 1000
+  LB37852ZXTS027690: 1000
+  LB37852Z9TS033609: 1000
+  LB37852Z8SS299847: 1000
+  LB37852Z7TS067225: 1000
+  LB37852Z4TS067246: 1000
+  LB37852Z4TS017561: 1000
+  LB37852Z4SS233800: 1000
+  LB37852Z1SS238954: 1000
+  LB37852Z0TS057555: 1000
+  LB37852Z0TS017573: 1000
+  LB37824Z4SG148390: 1000
+  LB37824Z0TG033206: 1000
+  LB37822Z1TB066148: 1000
+  LB3781NZ9TS089912: 1000
+  LB3781NZ3TS079652: 1000
+  LB37722Z2TX319550: 1000
+  LB37722Z0TX319112: 1000
+  L6T79PEZ5TD069527: 1000
+  L6T7954Z6TD054394: 1000
+  LB37852Z8TS067752: 1000
+  LB37852Z4TS067456: 1000
+  LB37822Z4TB021026: 1000
+  LB37822ZXSB207636: 1000
+  L6T7924Z1TD010009: 1000
+  LB37852Z9TS067243: 1000
+  LB37852Z6SS265065: 1000
+  LB37822Z5TB045223: 1000
+  LB37822Z4TB045181: 1000
+  L6T7924Z9TD052802: 1000
+  L6T7924Z4TD055770: 1000
+  LB37852ZXTS028581: 1000
+  LB37852Z9TS050801: 1000
+  LB37852Z8TS057352: 1000
+  LB37722Z3TX307553: 1000
+  LB37852Z4TS057588: 1000
+  L6T7924Z3TD056019: 1000
+  L6T7922Z6TY871603: 1000
+# 销售顾问 Hub W–AI 直接引用的列（优先内化）
+advisor_hub_columns:
+  W: AG
+  Y: AH
+  Z: AJ
+  AA: AI
+  AB: AK
+  AC: [AN, AS]   # 双 SUMIF 链
+  AD: AL
+  AE: AM
+  AF: AO
+  AG: AP
+  AH: AQ
+  AI: AR
+
+# Slice 1：明细 SUMIF 可直接重算的列
+detail_sumif_columns:
+  AB:
+    source_sheet: 保险明细
+    key_col: D
+    value_col: BP
+    formula: "=SUMIF(保险明细!D:D,O,保险明细!BP:BP)"
+    slice: 1
+    status: implemented
+  AJ:
+    source_sheet: 保险明细
+    key_col: D
+    value_col: BS
+    formula: "=SUMIF(保险明细!D:D,O,保险明细!BS:BS)"
+    slice: 1
+    status: implemented
+  AK:
+    source_sheet: 按揭明细
+    key_col: G
+    value_col: BO
+    formula: "=SUMIF(按揭明细!G:G,O,按揭明细!BO:BO)"
+    slice: 1
+    status: implemented
+  AO:
+    source_sheet: 保险明细
+    key_col: D
+    value_col: BU
+    formula: "=SUMIF(保险明细!D:D,O,保险明细!BU:BU)"
+    slice: 2
+    status: implemented
+  AP:
+    source_sheet: 保险明细
+    key_col: D
+    value_col: BV
+    formula: "=SUMIF(保险明细!D:D,O,保险明细!BV:BV)"
+    slice: 2
+    status: implemented
+  AL:
+    source_sheet: [按揭原表, 按揭明细]
+    key_col: [AC, G]
+    value_col: [AF, BR]
+    formula: "=SUMIF(按揭原表!AC:AC,O,按揭原表!AF:AF)+SUMIF(按揭明细!G:G,O,按揭明细!BR:BR)"
+    slice: 3
+    status: implemented
+  BH:
+    source_sheet: 装饰台账
+    key_col: N
+    criteria_col: G
+    value_col: AK
+    formula: "=SUMIFS(装饰台账!AK:AK,装饰台账!N:N,G)"
+    slice: 3
+    status: implemented
+  AW:
+    source_sheet: 整车成本
+    key_col: K
+    value_col: R
+    formula: "=INDEX(整车成本!R:R,MATCH(O,整车成本!K:K,0))"
+    slice: 3
+    status: implemented
+  AX:
+    source_sheet: 整车成本
+    key_col: K
+    value_col: S
+    formula: "=INDEX(整车成本!S:S,MATCH(O,整车成本!K:K,0))"
+    slice: 3
+    status: implemented
+  AY:
+    source_sheet: 整车成本
+    key_col: K
+    value_col: T
+    formula: "=INDEX(整车成本!T:T,MATCH(O,整车成本!K:K,0))"
+    slice: 3
+    status: implemented
+  AZ:
+    source_sheet: 整车成本
+    key_col: K
+    value_col: U
+    formula: "=INDEX(整车成本!U:U,MATCH(O,整车成本!K:K,0))"
+    slice: 3
+    status: implemented
+  BA:
+    source_sheet: 整车成本
+    key_col: K
+    value_col: V
+    formula: "=INDEX(整车成本!V:V,MATCH(O,整车成本!K:K,0))"
+    slice: 3
+    status: implemented
+  BB:
+    source_sheet: 整车成本
+    key_col: K
+    value_col: W
+    formula: "=INDEX(整车成本!W:W,MATCH(O,整车成本!K:K,0))"
+    slice: 3
+    status: implemented
+
+# Slice 5：Hub W–AI 闭包列（全表脱离金标准值列）
+closure_columns:
+  AG:
+    sources: [系统销售毛利, 比对表, 提成标准]
+    slice: 5
+    status: implemented
+  AH:
+    sources: [系统销售毛利, 比对表, 装饰台账, 保险明细, 按揭明细, 提成标准]
+    slice: 5
+    status: implemented
+  AI:
+    sources: [系统销售毛利, 装饰台账]
+    slice: 5
+    status: implemented
+  AM:
+    source_sheet: 爱车保
+    formula: "=SUMIF(爱车保!F:F,O,爱车保!BA:BA)"
+    slice: 5
+    status: implemented
+  AN:
+    source_sheet: 上户提成
+    formula: "=SUMIF(上户提成!B:B,O,上户提成!H:H)"
+    slice: 5
+    status: implemented
+  AS:
+    source_sheet: 置换服务
+    formula: "=SUMIF(置换服务!G:G,O,置换服务!BB:BB)"
+    slice: 5
+    status: implemented
+  AQ:
+    sources: [重功超期+活动, 提成标准, 系统销售毛利, 比对表]
+    slice: 5
+    status: implemented
+  AR:
+    sources: [二手置换 , 大客户]
+    slice: 5
+    status: implemented
+  AT:
+    source_sheet: 延保提成
+    formula: "=IF(SUMIF(延保提成!F:F,O,延保提成!BE:BE)<0,-200,IF(SUMIF(...)>0,200,0))"
+    slice: 6
+    status: implemented
+  BC:
+    source_sheet: 终端明细表
+    formula: "=-IF(AND(K<>0,K<>\"\"),SUMIFS(终端明细表!P, C, O),0)"
+    slice: 6
+    status: implemented

@@ -1,0 +1,216 @@
+# 邀约专员 — 跨版式字段拉通注册表
+# 原则：所有岗位族共用同一套字段 id；某版式无该列时界面留空并标记「不适用」
+
+family_id: invite_specialist
+family_label: 邀约专员
+rules_sheet: 邀约专员提成
+
+templates:
+  xiwu_dcc:
+    label: 西物 DCC
+    company: 西物
+  chaoshi_dcc:
+    label: 超市 DCC
+    company: 超市
+  chongzhou_invite:
+    label: 崇州直营
+    company: 崇州
+
+sections:
+  - id: dms
+    label: DMS 指标
+    fields:
+      - id: dms_achieved_count
+        label: 达成项数
+        input_attr: dms_achieved_count
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col: H
+
+      - id: dms_per_item_reward
+        label: 单项奖励（元）
+        input_attr: dms_per_item_reward
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        default: 100
+
+      - id: dms_all_seven_achieved
+        label: 七项均达成追加
+        input_attr: dms_all_seven_achieved
+        value_type: checkbox
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+
+      - id: dms_all_seven_bonus
+        label: 追加金额（元）
+        input_attr: dms_all_seven_bonus
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        default: 100
+
+  - id: invite_store
+    label: 邀约到店
+    fields:
+      - id: invite_groups
+        label: 邀约到店组数
+        input_attr: invite_groups
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col: K
+
+      - id: invite_unit_rate
+        label: 基础单价（元/组）
+        input_attr: invite_unit_rate
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col: J
+
+      - id: invite_rate_bonus_per_group
+        label: 邀约到店率追加（元/组）
+        label_by_template:
+          chongzhou_invite: 过程KPI单组追加（元/组）
+        input_attr: invite_rate_bonus_per_group
+        value_type: number
+        applicable: [xiwu_dcc, chongzhou_invite]
+        not_applicable_note:
+          chaoshi_dcc: 超市子表无 S 列「单组追加×到店量」
+        excel_col:
+          xiwu_dcc: S
+          chongzhou_invite: S
+
+  - id: cool_models
+    label: 车型达成奖励（缤越/博越/缤瑞 COOL）
+    section_note: 超市子表 P 列表头为「缤越COOL、博越COOL、缤瑞COOL」
+    fields:
+      - id: achieved_invite_volume
+        label: 达成邀约量
+        input_attr: achieved_invite_volume
+        value_type: number
+        applicable: [chaoshi_dcc]
+        not_applicable_note:
+          xiwu_dcc: 西物子表无 P 列达成邀约量
+          chongzhou_invite: 崇州子表无此项
+        excel_col: P
+
+      - id: per_group_store_bonus
+        label: 单组到店追加（元/组）
+        input_attr: per_group_store_bonus
+        value_type: number
+        applicable: [chaoshi_dcc]
+        not_applicable_note:
+          xiwu_dcc: 西物子表无 Q 列单组到店追加
+          chongzhou_invite: 崇州子表无此项
+        excel_col: Q
+
+  - id: deal
+    label: 成交台次
+    fields:
+      - id: deal_count
+        label: 成交台次
+        input_attr: deal_count
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col: N
+
+      - id: deal_unit_rate
+        label: 基础单价（元/台）
+        input_attr: deal_unit_rate
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col: M
+
+      - id: deal_rate_bonus_per_unit
+        label: 成交率追加（元/台）
+        input_attr: deal_rate_bonus_per_unit
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col:
+          xiwu_dcc: W
+          chaoshi_dcc: T
+          chongzhou_invite: V
+
+  - id: heavy_attack
+    label: 重攻奖励
+    fields:
+      - id: heavy_attack_bonus
+        label: 奖励基数 / 单组追加
+        input_attr: heavy_attack_bonus
+        value_type: number
+        applicable: [xiwu_dcc, chongzhou_invite]
+        not_applicable_note:
+          chaoshi_dcc: 超市子表无重攻列
+        excel_col:
+          xiwu_dcc: X
+          chongzhou_invite: X
+
+      - id: heavy_attack_multiplier
+        label: 系数 / 重攻台次
+        input_attr: heavy_attack_multiplier
+        value_type: number
+        applicable: [xiwu_dcc, chongzhou_invite]
+        not_applicable_note:
+          chaoshi_dcc: 超市子表无重攻列
+        excel_col:
+          xiwu_dcc: Y
+          chongzhou_invite: Y
+
+  - id: invite_task
+    label: 任务考核
+    section_note: >-
+      西物较崇州在重攻段多一格 AA「奖励」表头，任务数据列 AA/AB/AC 与崇州同位
+      （表头行 AB/AC 相对数据右移一格）；西物 AD=…+AC+F；超市 Y=…−X；崇州 AD=…−AC−F
+    fields:
+      - id: invite_task_target
+        label: 邀约任务
+        input_attr: ""
+        matrix_only: true
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col:
+          xiwu_dcc: AA
+          chaoshi_dcc: V
+          chongzhou_invite: AA
+
+      - id: invite_task_completion
+        label: 完成率
+        input_attr: ""
+        matrix_only: true
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col:
+          xiwu_dcc: AB
+          chaoshi_dcc: W
+          chongzhou_invite: AB
+
+      - id: task_adjustment
+        label: 任务考核调整（AC，计入加项）
+        input_attr: task_adjustment
+        value_type: number
+        applicable: [xiwu_dcc]
+        not_applicable_note:
+          chaoshi_dcc: 超市为扣减，见「任务考核扣减 X」
+          chongzhou_invite: 崇州为扣减，见「任务考核扣减 AC」
+        excel_col: AC
+
+      - id: task_penalty
+        label: 任务考核扣减
+        input_attr: task_penalty
+        value_type: number
+        applicable: [chaoshi_dcc, chongzhou_invite]
+        not_applicable_note:
+          xiwu_dcc: 西物为调整项 AC（可负），见「任务考核调整」
+        excel_col:
+          chaoshi_dcc: X
+          chongzhou_invite: AC
+
+  - id: pickup_400
+    label: 400接起率考核
+    section_note: 超市/崇州块标题含「400接起率」；三版式子表均有 F 列
+    fields:
+      - id: call_answer_penalty
+        label: 接起率考核（F）
+        label_by_template:
+          xiwu_dcc: 接起率考核（F，+加项）
+          chaoshi_dcc: 400接起率考核（F）
+          chongzhou_invite: 400接起率考核扣减（F）
+        input_attr: call_answer_penalty
+        value_type: number
+        applicable: [xiwu_dcc, chaoshi_dcc, chongzhou_invite]
+        excel_col: F

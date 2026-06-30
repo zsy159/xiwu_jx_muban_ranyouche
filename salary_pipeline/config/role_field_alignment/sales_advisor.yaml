@@ -1,0 +1,164 @@
+# 销售顾问 — 跨版式字段拉通注册表
+# 最终取数：绩效整理表按 P=姓名 汇总各列 → Hub W–AI SUMIF/SUMIFS × 完成率
+
+family_id: sales_advisor
+family_label: 销售顾问
+rules_sheet: 销售提成标准
+
+templates:
+  personal_h:
+    label: 个人完成率
+  store_ba:
+    label: 门店块
+  insurance_add:
+    label: 保险追加常数
+
+sections:
+  - id: completion
+    label: 完成率乘数
+    section_note: 整车/加装/保险汇总乘以销量或店别完成率；金融等直引项不乘完成率
+    fields:
+      - id: sales_completion_rate
+        label: 销量完成率
+        input_attr: sales_completion_rate
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: H
+        label_by_template:
+          store_ba: 销量完成率（加装/保险用）
+
+      - id: store_completion_rate
+        label: 店别完成率
+        input_attr: store_completion_rate
+        value_type: number
+        applicable: [store_ba]
+        not_applicable_note:
+          personal_h: 个人顾问整车用销量完成率
+          insurance_add: 韩柏成等整车无乘数，保险列为汇总+常数
+        excel_col: BA
+        label_by_template:
+          store_ba: 店别完成率（整车用）
+
+  - id: gate_sumifs
+    label: 绩效整理表合计（SUMIFS × 完成率）
+    section_note: 整车/加装/保险列按姓名汇总后写入子表闭包，再乘完成率进 Hub；权限结余（AH）为 SUMIFS 直引，见下一分组
+    fields:
+      - id: perf_ag_sum
+        label: 整车绩效合计
+        input_attr: perf_ag_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AG
+
+      - id: perf_ai_sum
+        label: 加装绩效合计
+        input_attr: perf_ai_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AI
+
+      - id: perf_aj_sum
+        label: 保险绩效合计
+        input_attr: perf_aj_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AJ
+
+      - id: insurance_add_const
+        label: 保险绩效追加常数
+        input_attr: insurance_add_const
+        value_type: number
+        applicable: [insurance_add]
+        not_applicable_note:
+          personal_h: 常规模板保险 = 保险绩效合计 × 销量完成率
+          store_ba: 门店块保险 = 保险绩效合计 × 店别完成率
+        default: 0
+
+  - id: gate_sumifs_direct
+    label: 绩效整理表合计（SUMIFS 直引）
+    section_note: 权限结余绩效 Hub X 列 = AH 列按姓名汇总，不乘完成率
+    fields:
+      - id: perf_ah_sum
+        label: 权限结余合计（AH）
+        input_attr: perf_ah_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AH
+
+  - id: gate_sumif
+    label: 绩效整理表合计（SUMIF 直引）
+    section_note: 金融/爱车宝/上户等 Hub 列直接 SUMIF，不乘完成率；上户绩效 AC = AN 列 + AS 列两项之和
+    fields:
+      - id: perf_ak_sum
+        label: 金融绩效合计
+        input_attr: perf_ak_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AK
+
+      - id: perf_am_sum
+        label: 爱车宝绩效合计
+        input_attr: perf_am_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AM
+
+      - id: perf_an_sum
+        label: AN 列合计（上户分项一）
+        input_attr: perf_an_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AN
+
+      - id: perf_as_sum
+        label: AS 列合计（上户分项二）
+        input_attr: perf_as_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AS
+
+  - id: gate_sumif_ext
+    label: 绩效整理表合计（扩展 SUMIF）
+    section_note: AD–AI 列直引 Hub，不乘完成率；部分顾问无此项时预填为 0
+    fields:
+      - id: perf_al_sum
+        label: 盈利产品合计（AL）
+        input_attr: perf_al_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AL
+
+      - id: perf_at_sum
+        label: 延保提成合计（AT）
+        input_attr: perf_at_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AT
+
+      - id: perf_aq_sum
+        label: 特殊车型合计（AQ）
+        input_attr: perf_aq_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AQ
+
+      - id: perf_ao_sum
+        label: 座位险合计（AO）
+        input_attr: perf_ao_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AO
+
+      - id: perf_ar_sum
+        label: 二手车合计（AR）
+        input_attr: perf_ar_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AR
+
+      - id: perf_ap_sum
+        label: 玻碎险合计（AP）
+        input_attr: perf_ap_sum
+        value_type: number
+        applicable: [personal_h, store_ba, insurance_add]
+        excel_col: AP

@@ -1,0 +1,63 @@
+# 提成汇总公式异常批注登记 — reconcile 时在系统输出 Excel 标橙并写批注
+# 公式含尾项常数（=-140、SUMIFS+600 等）由 collect_topology_manual_formula_cells 标浅蓝，不在此登记
+# 与 wa_parity_deferred（浅蓝·公式含手工）互补：本文件侧重「公式形态异常」导致的数据偏差说明
+
+hub_annotations:
+  # Category B — 绩效整理表手工 AH 比例
+  - name: 赵思梵
+    column: 权限结余绩效
+    reason: >-
+      绩效整理表 VIN LB37822ZXSB207636：金标准 AH=AA×0.4（手工 20），
+      系统按 AA×20% 计算（10），Hub 权限结余绩效差额约 −10
+
+  # Category C — 绩效整理表 AH 尾项 +100（驱动 Hub X）
+  - name: 易花贞子
+    column: 权限结余绩效
+    reason: >-
+      绩效整理表 VIN LB37852Z1TS069178：金标准 AH 公式末尾手工 +100，
+      系统未建模，Hub 权限结余绩效差额约 −100
+
+  # Category D — 渠道 I 误配（已在 wa_parity_deferred，此处补充订单级说明）
+  - name: 唐操
+    column: 整车绩效
+    reason: >-
+      订单 L6T78XCZ5TY782006 渠道 I：金标准「店面特价」AG=300，
+      系统「按揭专享」AG=0，整车绩效 / 权限结余链路偏差
+
+  # Category E — 负 AA 金标准 AH 留空
+  - name: 韩柏成
+    column: 权限结余绩效
+    reason: >-
+      翼真负 AA 订单（如 L6T798NE3TT750701）金标准 AH 留空，
+      系统仍算 AA×14%，Hub 权限结余绩效偏低约 −140
+
+  - name: 沈燕1
+    column: 权限结余绩效
+    reason: >-
+      负 AA / 翼真订单金标准 AH 留空，系统仍算 AA×14%，
+      Hub 权限结余绩效偏低约 −140
+
+  - name: 蒲喜
+    column: 权限结余绩效
+    reason: >-
+      绩效整理表 VIN LB37852Z8TS025906：金标准 D 列「直营店二网」致 AH 公式留空，
+      系统按 order_context 渠道「自有店」正确计算整车超额 −216.72，
+      Hub 权限结余绩效差额由此产生
+
+  # Hub 层公式尾项常数（topology 亦可检出，登记保留业务语境）
+  - name: 韩柏成
+    column: 保险绩效
+    reason: >-
+      金标准 Z134 = SUMIFS(AJ)+600 手工常数，系统仅 SUMIFS(AJ)
+
+  - name: 韩柏成
+    column: 加装绩效
+    reason: >-
+      金标准 Y134=1000 静态格无公式，系统按 SUMIFS(AI)×完成率 计算
+
+  # 盈利产品 AL 尾项调整（绩效整理表级，影响汇总列若对账暴露可扩展）
+  - name: 薛祥建
+    column: 盈利产品绩效
+    reason: >-
+      绩效整理表 VIN L6T798NE4TT750321：金标准 AL 尾项 −1229.5，
+      系统未建模

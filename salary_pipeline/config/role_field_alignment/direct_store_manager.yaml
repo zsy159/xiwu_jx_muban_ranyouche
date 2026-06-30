@@ -1,0 +1,97 @@
+# 直营店经理 — 跨版式字段拉通注册表
+# 门店块行 3–8；钟涛含华阳 + 华阳领克双店块
+
+family_id: direct_store_manager
+family_label: 直营店经理
+rules_sheet: 直营店经理提成 (财务)
+
+templates:
+  store_block:
+    label: 单店门店块
+  store_block_dual:
+    label: 双店门店块（钟涛）
+
+sections:
+  - id: showroom
+    label: 展厅台次
+    fields:
+      - id: showroom_task
+        label: 展厅任务
+        input_attr: showroom_task
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: C
+
+      - id: showroom_actual
+        label: 展厅实际
+        input_attr: showroom_actual
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: D
+
+  - id: channel
+    label: 渠道台次
+    fields:
+      - id: channel_task
+        label: 渠道任务
+        input_attr: channel_task
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: I
+
+      - id: channel_actual
+        label: 渠道实际
+        input_attr: channel_actual
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: J
+
+  - id: unit_rate
+    label: 单台标准
+    fields:
+      - id: showroom_rate
+        label: 展厅单台标准
+        input_attr: showroom_rate
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: G
+
+      - id: channel_rate
+        label: 渠道单台标准
+        input_attr: channel_rate
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: M
+
+  - id: extras
+    label: 附加与固定
+    fields:
+      - id: attach_commission
+        label: 附加收入
+        input_attr: attach_commission
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: P
+
+      - id: fixed_performance
+        label: 固定绩效
+        input_attr: fixed_performance
+        value_type: number
+        applicable: [store_block, store_block_dual]
+        excel_col: Q
+
+  - id: totals
+    label: 合计与 Hub
+    fields:
+      - id: total_commission
+        label: 提成合计
+        input_attr: ""
+        matrix_only: true
+        applicable: [store_block, store_block_dual]
+        excel_col: R
+
+      - id: hub_vehicle_performance
+        label: Hub整车完成考核
+        input_attr: ""
+        matrix_only: true
+        applicable: [store_block, store_block_dual]
