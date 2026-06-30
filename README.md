@@ -11,7 +11,8 @@ jx_muban_ranyouche/
 ├── README.md
 ├── docs/                        # 文档
 │   ├── 迭代文档.md
-│   └── 重构需求文档.md
+│   ├── 重构需求文档.md
+│   └── 更新日志.md
 ├── data/
 │   ├── raw/                     # 原始 Excel（按月份分子目录）
 │   │   └── 2026-05/
@@ -98,3 +99,5 @@ python run_console.py
 - **对账模式**：`reconcile` 将计算版与 `data/raw/` 中金标准 sheet 列级比对，输出 `output/<月>/reports/差异报告_*.md`；某岗位差异为 0 即该岗位逻辑通过。
 
 详细迭代计划见 [docs/迭代文档.md](docs/迭代文档.md)。
+
+版本发布说明见 [docs/更新日志.md](docs/更新日志.md)。
