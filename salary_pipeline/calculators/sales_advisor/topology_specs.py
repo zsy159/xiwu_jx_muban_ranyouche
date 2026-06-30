@@ -150,13 +150,36 @@ def _load_topology_cells(topology_path: Path | None = None) -> dict[str, dict[st
 
 _PURE_CONST_FORMULA_RE = re.compile(r"^=\s*[-+]?\d+(?:\.\d+)?\s*$", re.IGNORECASE)
 _MANUAL_TAIL_ARITH_RE = re.compile(r"[+\-]\d+(?:\.\d+)?\s*\)?\s*$")
+_PURE_ARITH_FORMULA_RE = re.compile(
+    r"^=\s*\(?\s*[-+]?\d+(?:\.\d+)?(?:\s*[-+*/]\s*\(?\s*[-+]?\d+(?:\.\d+)?\s*\)?)*\s*\)?\s*$",
+    re.IGNORECASE,
+)
+_SHEET_REF_RE = re.compile(r"(?:'[^']+'|[^'!\s,()]+)!", re.IGNORECASE)
+_CELL_REF_RE = re.compile(r"(?<![A-Z])\b[A-Z]{1,3}\d+\b", re.IGNORECASE)
+_COL_RANGE_REF_RE = re.compile(r"\b[A-Z]{1,3}:[A-Z]{1,3}\b", re.IGNORECASE)
+
+
+def _strip_formula_string_literals(formula: str) -> str:
+    return re.sub(r'"[^"]*"', "", formula)
+
+
+def _formula_has_cell_or_range_reference(formula: str) -> bool:
+    text = _strip_formula_string_literals(formula)
+    if _SHEET_REF_RE.search(text):
+        return True
+    if _CELL_REF_RE.search(text):
+        return True
+    if _COL_RANGE_REF_RE.search(text):
+        return True
+    return False
 
 
 def is_manual_formula_adjustment(formula: str) -> bool:
     """True when golden formula embeds a manual numeric constant.
 
-    Covers hardcoded ``=-140`` / ``=100`` and trailing arithmetic such as
-    ``=SUMIFS(...)-100`` or ``=AH80-100``.
+    Covers hardcoded ``=-140`` / ``=100``, pure arithmetic without references
+    (``=189*20``), and trailing arithmetic such as ``=SUMIFS(...)-100`` or
+    ``=AH80-100``.
     """
     text = formula.strip()
     if not text.startswith("="):
@@ -165,7 +188,13 @@ def is_manual_formula_adjustment(formula: str) -> bool:
         return True
     if "#REF!" in text.upper():
         return False
-    return bool(_MANUAL_TAIL_ARITH_RE.search(text))
+    if _MANUAL_TAIL_ARITH_RE.search(text):
+        return True
+    if not _formula_has_cell_or_range_reference(text) and _PURE_ARITH_FORMULA_RE.match(
+        text
+    ):
+        return True
+    return False
 
 
 def _cell_formula_text(raw_value: Any, topo_cell: dict[str, Any]) -> str:

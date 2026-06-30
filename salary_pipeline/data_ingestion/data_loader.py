@@ -163,13 +163,16 @@ def read_computed_payout_excel(
 def read_computed_summary_excel(
     workbook_path: Path,
     sheet_name: str = "提成汇总",
+    *,
+    header_row: int = 2,
+    data_start_row: int = 3,
 ) -> pd.DataFrame:
-    """Read pipeline-exported 提成汇总.xlsx (header at row 2)."""
+    """Read pipeline-exported 提成汇总.xlsx (default header at row 2)."""
     return read_golden_summary_sheet(
         workbook_path,
         sheet_name,
-        header_row=2,
-        data_start_row=3,
+        header_row=header_row,
+        data_start_row=data_start_row,
     )
 
 

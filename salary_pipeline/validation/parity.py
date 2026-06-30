@@ -278,13 +278,21 @@ class CommissionSummaryParity:
         *,
         header_row: int = 2,
         data_start_row: int = 3,
+        golden_header_row: int | None = None,
+        golden_data_start_row: int | None = None,
     ) -> list[CellMismatch]:
-        computed = read_computed_summary_excel(computed_path)
+        computed = read_computed_summary_excel(
+            computed_path,
+            header_row=header_row,
+            data_start_row=data_start_row,
+        )
         golden = read_golden_summary_sheet(
             golden_workbook,
             golden_sheet,
-            header_row=header_row,
-            data_start_row=data_start_row,
+            header_row=golden_header_row if golden_header_row is not None else header_row,
+            data_start_row=(
+                golden_data_start_row if golden_data_start_row is not None else data_start_row
+            ),
         )
         checker = self._with_workbook_paths(golden_workbook, computed_path)
         return checker.collect_cell_mismatches(computed, golden)

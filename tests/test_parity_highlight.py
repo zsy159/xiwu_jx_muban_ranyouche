@@ -10,6 +10,7 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from salary_pipeline.pipelines.commission_summary import CommissionSummaryBuilder
+from salary_pipeline.data_ingestion.data_loader import normalize_header
 from salary_pipeline.calculators.sales_advisor.registry import wa_parity_deferred_cells
 from salary_pipeline.calculators.sales_advisor.topology_specs import (
     collect_topology_manual_formula_cells,
@@ -17,12 +18,14 @@ from salary_pipeline.calculators.sales_advisor.topology_specs import (
     is_manual_formula_adjustment,
 )
 from salary_pipeline.utils.excel_format import (
+    FORMULA_ANOMALY_FILL_RGB,
     GOLDEN_STATIC_FILL_RGB,
     MANUAL_DEFERRED_FILL_RGB,
     MANUAL_DEFERRED_FILL_COMMENT,
     PARITY_MISMATCH_FILL_COMMENT,
     PARITY_MISMATCH_FILL_RGB,
     STATIC_FILL_COMMENT,
+    add_commission_summary_color_legend,
     highlight_commission_summary_deferred_cells,
     highlight_commission_summary_mismatches,
 )
@@ -36,6 +39,9 @@ class ManualFormulaDetectionTests(unittest.TestCase):
         self.assertTrue(is_manual_formula_adjustment("=SUMIFS(AJ:AJ,D:D,D3)-100"))
         self.assertTrue(is_manual_formula_adjustment("=AH80-100"))
         self.assertTrue(is_manual_formula_adjustment("=SUMIFS(AJ:AJ,D:D,D3)+600"))
+        self.assertTrue(is_manual_formula_adjustment("=189*20"))
+        self.assertTrue(is_manual_formula_adjustment("=100*0.8"))
+        self.assertTrue(is_manual_formula_adjustment("=500+300"))
         self.assertFalse(is_manual_formula_adjustment("=SUMIFS(AJ:AJ,D:D,D3)"))
         self.assertFalse(is_manual_formula_adjustment("100"))
         self.assertFalse(is_manual_formula_adjustment("=W80*0.8"))
@@ -79,6 +85,7 @@ class ManualFormulaDetectionTests(unittest.TestCase):
             ws = wb["提成汇总"]
             ws["X3"] = "=-140"
             ws["Z3"] = "=SUMIFS(AJ:AJ,D:D,D3)+600"
+            ws["X4"] = "=189*20"
             ws["W4"] = "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)"
             wb.save(golden_path)
             wb.close()
@@ -96,7 +103,8 @@ class ManualFormulaDetectionTests(unittest.TestCase):
             self.assertIn(("沈燕1", "销售顾问"), manual_cells)
             self.assertIn("权限结余绩效", manual_cells[("沈燕1", "销售顾问")])
             self.assertIn("保险绩效", manual_cells[("沈燕1", "销售顾问")])
-            self.assertNotIn(("韩柏成", "销售顾问"), manual_cells)
+            self.assertIn("权限结余绩效", manual_cells[("韩柏成", "销售顾问")])
+            self.assertNotIn("整车绩效", manual_cells.get(("韩柏成", "销售顾问"), frozenset()))
 
     def test_highlight_manual_formula_cells_blue_with_comment(self) -> None:
         columns = ["店别", "职务", "姓名", "权限结余绩效"]
@@ -633,6 +641,38 @@ class ParityHighlightTests(unittest.TestCase):
         mismatches = checker.collect_cell_mismatches(computed, golden)
         self.assertEqual(len(mismatches), 1)
         self.assertEqual(mismatches[0].column, "权限结余绩效")
+
+
+class ColorLegendTests(unittest.TestCase):
+    def test_add_commission_summary_color_legend_inserts_row(self) -> None:
+        columns = ["店别", "职务", "姓名", "整车绩效"]
+        df = pd.DataFrame(
+            [{"店别": "西物", "职务": "销售顾问", "姓名": "张三", "整车绩效": 100.0}]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(df, path)
+
+            add_commission_summary_color_legend(path, "提成汇总", insert_at_row=2)
+
+            wb = load_workbook(path)
+            ws = wb["提成汇总"]
+            self.assertEqual(ws.cell(row=2, column=1).fill.start_color.rgb, GOLDEN_STATIC_FILL_RGB)
+            self.assertIn("金标准直接填数", ws.cell(row=2, column=2).value)
+            self.assertEqual(
+                ws.cell(row=2, column=3).fill.start_color.rgb, MANUAL_DEFERRED_FILL_RGB
+            )
+            self.assertIn("公式含手工", ws.cell(row=2, column=4).value)
+            self.assertEqual(
+                ws.cell(row=2, column=5).fill.start_color.rgb, PARITY_MISMATCH_FILL_RGB
+            )
+            self.assertIn("数值不一致", ws.cell(row=2, column=6).value)
+            self.assertEqual(
+                ws.cell(row=2, column=7).fill.start_color.rgb, FORMULA_ANOMALY_FILL_RGB
+            )
+            self.assertIn("公式形态异常", ws.cell(row=2, column=8).value)
+            self.assertEqual(normalize_header(ws.cell(row=3, column=1).value), "店别")
 
 
 if __name__ == "__main__":

@@ -47,6 +47,7 @@ from salary_pipeline.calculators.sales_advisor.parity_annotations import (
 )
 from salary_pipeline.utils.excel_format import (
     add_commission_summary_annotations,
+    add_commission_summary_color_legend,
     highlight_commission_summary_deferred_cells,
     highlight_commission_summary_mismatches,
 )
@@ -212,6 +213,9 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
         parity_cfg.get("performance_columns") or []
     )
     if compare_columns:
+        add_commission_summary_color_legend(computed_path, sheet, insert_at_row=2)
+        highlight_header_row = header_row + 1
+        highlight_data_start = data_start_row + 1
         highlight_checker = CommissionSummaryParity(
             join_keys=parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
             numeric_tolerance=float(parity_cfg.get("numeric_tolerance", 1e-6)),
@@ -222,8 +226,10 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             computed_path,
             golden_path,
             sheet,
-            header_row=header_row,
-            data_start_row=data_start_row,
+            header_row=highlight_header_row,
+            data_start_row=highlight_data_start,
+            golden_header_row=header_row,
+            golden_data_start_row=data_start_row,
         )
         highlighted = highlight_commission_summary_mismatches(
             computed_path,
@@ -231,8 +237,8 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             mismatches,
             parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
             compare_columns,
-            header_row=header_row,
-            data_start_row=data_start_row,
+            header_row=highlight_header_row,
+            data_start_row=highlight_data_start,
         )
         print(
             f"[reconcile] 高亮 {highlighted} 个不一致单元格 -> {computed_path}"
@@ -247,8 +253,8 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             sheet,
             deferred_for_highlight,
             static_cells=static_cells,
-            header_row=header_row,
-            data_start_row=data_start_row,
+            header_row=highlight_header_row,
+            data_start_row=highlight_data_start,
         )
         if deferred_highlighted:
             print(
@@ -265,8 +271,10 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             sheet,
             [ann.key() for ann in base_annotations],
             join_keys=parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
-            header_row=header_row,
-            data_start_row=data_start_row,
+            header_row=highlight_header_row,
+            data_start_row=highlight_data_start,
+            golden_header_row=header_row,
+            golden_data_start_row=data_start_row,
         )
         annotations = annotations_for_workbook(
             parity_values=parity_values,
@@ -276,8 +284,8 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             computed_path,
             sheet,
             annotations,
-            header_row=header_row,
-            data_start_row=data_start_row,
+            header_row=highlight_header_row,
+            data_start_row=highlight_data_start,
         )
         if annotated:
             print(

@@ -54,6 +54,13 @@ FORMULA_ANOMALY_FILL = PatternFill(
 )
 FORMULA_ANOMALY_FILL_RGB = "FFFCE4D6"
 
+_COMMISSION_SUMMARY_LEGEND_ITEMS: tuple[tuple[PatternFill, str], ...] = (
+    (GOLDEN_STATIC_FILL, "浅灰 #D9D9D9：金标准直接填数"),
+    (MANUAL_DEFERRED_FILL, "浅蓝 #BDD7EE：公式含手工"),
+    (PARITY_MISMATCH_FILL, "琥珀 #FFEB9C：数值不一致"),
+    (FORMULA_ANOMALY_FILL, "浅橙 #FCE4D6：公式形态异常"),
+)
+
 
 class ParityMismatchCell(Protocol):
     join_values: tuple[tuple[str, Any], ...]
@@ -175,6 +182,27 @@ def _mismatch_comment(mismatch: ParityMismatchCell) -> str:
         diff = computed - golden
         lines.append(f"金标准={golden:g}  系统={computed:g}  差={diff:+g}")
     return "\n".join(lines)
+
+
+def add_commission_summary_color_legend(
+    workbook_path: Path,
+    sheet_name: str,
+    *,
+    insert_at_row: int = 2,
+) -> None:
+    """Insert a row of color swatches and Chinese labels for reconcile highlighting."""
+    wb = load_workbook(workbook_path)
+    if sheet_name not in wb.sheetnames:
+        raise KeyError(f"sheet {sheet_name!r} not found in {workbook_path}")
+    ws = wb[sheet_name]
+    ws.insert_rows(insert_at_row)
+    col = 1
+    for fill, label in _COMMISSION_SUMMARY_LEGEND_ITEMS:
+        swatch = ws.cell(row=insert_at_row, column=col, value="")
+        swatch.fill = fill
+        ws.cell(row=insert_at_row, column=col + 1, value=label)
+        col += 2
+    wb.save(workbook_path)
 
 
 def highlight_commission_summary_mismatches(

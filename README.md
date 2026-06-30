@@ -101,3 +101,20 @@ python run_console.py
 详细迭代计划见 [docs/迭代文档.md](docs/迭代文档.md)。
 
 版本发布说明见 [docs/更新日志.md](docs/更新日志.md)。
+
+## Git 双远端推送
+
+本仓库同时托管在 **Gitee** 与 **GitHub**，日常推送请一次推到两处：
+
+```bash
+git push origin master   # 同时推 GitHub 与 Gitee（双 push URL）
+# 仅 GitHub：git push github master
+```
+
+| 远端 | 用途 | URL |
+|------|------|-----|
+| `origin`（fetch） | 默认拉取 | `https://gitee.com/shibenshu/xiwu_-jx_muban_ranyouche.git` |
+| `origin`（push） | 同时推送 Gitee 与 GitHub | 见 `git remote get-url --all --push origin` |
+| `github` | 单独推/拉 GitHub | `https://github.com/zsy159/xiwu_jx_muban_ranyouche` |
+
+两台需分别配置 HTTPS 凭据或 SSH；勿对 `master` 使用 `force push`。

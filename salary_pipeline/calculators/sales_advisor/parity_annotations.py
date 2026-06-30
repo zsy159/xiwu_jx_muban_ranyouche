@@ -171,6 +171,8 @@ def parity_values_for_annotations(
     join_keys: list[str] | None = None,
     header_row: int = 2,
     data_start_row: int = 3,
+    golden_header_row: int | None = None,
+    golden_data_start_row: int | None = None,
 ) -> dict[tuple[str, str], tuple[float | None, float | None]]:
     """Load golden vs computed values for annotated (姓名, 列) pairs."""
     from salary_pipeline.data_ingestion.data_loader import (
@@ -187,15 +189,25 @@ def parity_values_for_annotations(
     join_keys = join_keys or ["店别", "职务", "姓名"]
     columns = sorted({col for _, col in keys})
     computed = filter_comparable_rows(
-        summary_frame_from_builder(read_computed_summary_excel(computed_path))
+        summary_frame_from_builder(
+            read_computed_summary_excel(
+                computed_path,
+                header_row=header_row,
+                data_start_row=data_start_row,
+            )
+        )
     )
     golden = filter_comparable_rows(
         summary_frame_from_builder(
             read_golden_summary_sheet(
                 golden_workbook,
                 golden_sheet,
-                header_row=header_row,
-                data_start_row=data_start_row,
+                header_row=golden_header_row if golden_header_row is not None else header_row,
+                data_start_row=(
+                    golden_data_start_row
+                    if golden_data_start_row is not None
+                    else data_start_row
+                ),
             )
         )
     )
