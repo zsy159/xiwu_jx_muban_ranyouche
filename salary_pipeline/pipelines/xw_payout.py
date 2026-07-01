@@ -11,6 +11,7 @@ from salary_pipeline.data_ingestion.hub_frame_loader import build_hub_sumif_fram
 from salary_pipeline.modules.payout_skeleton import read_payout_skeleton
 from salary_pipeline.paths import CONFIG_DIR, resolve_project_path
 from salary_pipeline.utils.excel_format import format_writer_sheet
+from salary_pipeline.pipelines.payout_formatting import apply_payout_highlighting
 from salary_pipeline.pipelines.xw_payout_formula_engine import (
     PAYOUT_CHANNEL_COLUMN_MAPS,
     PAYOUT_CHANNEL_CONFIGS,
@@ -62,6 +63,25 @@ class ChannelPayoutPipeline:
         self.engine_config: XwPayoutEngineConfig = PAYOUT_CHANNEL_CONFIGS[channel]
         self.column_map = PAYOUT_CHANNEL_COLUMN_MAPS[channel]
 
+    def _resolve_hub_context(self, context: dict[str, Any]) -> tuple[Path | None, bool]:
+        """Return (computed_hub_path, use_computed_hub) from explicit context + month.yaml."""
+        payout_cfg = self.month_config.get("payout", {})
+        use_computed = bool(
+            context.get("use_computed_hub", payout_cfg.get("use_computed_hub", True))
+        )
+        if not use_computed:
+            return None, False
+
+        hub_path = context.get("hub_path")
+        if hub_path is not None:
+            return resolve_project_path(hub_path), True
+
+        hub_rel = self.month_config["outputs"].get("commission_summary_file")
+        if not hub_rel:
+            return None, True
+        computed = resolve_project_path(hub_rel)
+        return (computed if computed.exists() else None), True
+
     def run(self, context: dict[str, Any] | None = None) -> dict[str, Any]:
         context = context or {}
         payout_cfg = self.month_config.get("payout", {})
@@ -72,17 +92,18 @@ class ChannelPayoutPipeline:
             channel_cfg.get("golden_workbook") or self.month_config["workbooks"]["sales"]
         )
 
-        hub_computed = None
-        if context.get("use_computed_hub"):
-            hub_computed = context.get("hub_path")
-            if hub_computed is None:
-                hub_rel = self.month_config["outputs"].get("commission_summary_file")
-                hub_computed = resolve_project_path(hub_rel) if hub_rel else None
+        hub_computed, use_computed_hub = self._resolve_hub_context(context)
+        if hub_computed is None:
+            logger.warning(
+                "%s payout: computed hub missing (%s); "
+                "SUMIF source columns will be empty (no golden fallback)",
+                self.channel,
+                self.month_config["outputs"].get("commission_summary_file"),
+            )
 
         hub_frame = build_hub_sumif_frame(
             golden_path,
             computed_workbook=hub_computed,
-            data_start_row=int(self.month_config.get("parity", {}).get("data_start_row", 3)),
         )
 
         skeleton = read_payout_skeleton(golden_path, sheet, data_start_row=data_start_row)
@@ -104,6 +125,7 @@ class ChannelPayoutPipeline:
         )
         output_path = resolve_project_path(rel_path)
         self._export(result, output_path, sheet)
+        apply_payout_highlighting(self.month_config, output_path, self.channel)
 
         if engine.warnings:
             report_dir = resolve_project_path(
@@ -118,6 +140,8 @@ class ChannelPayoutPipeline:
             "summary": result,
             "output_path": output_path,
             "warnings": engine.warnings,
+            "use_computed_hub": use_computed_hub and hub_computed is not None,
+            "hub_path": hub_computed,
         }
 
     def _export(self, frame: pd.DataFrame, path: Path, sheet_name: str) -> None:

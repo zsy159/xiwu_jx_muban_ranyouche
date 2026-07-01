@@ -15,12 +15,28 @@ from salary_pipeline.pipelines.commission_summary import (
 )
 from salary_pipeline.pipelines.commission_summary_formatting import (
     apply_commission_summary_highlighting,
+    parity_highlight_mode,
     resolve_highlight_golden_path,
 )
 from salary_pipeline.pipelines.non_frontline_columns import apply_non_frontline_columns
 
 
 class CommissionSummaryFormattingTests(unittest.TestCase):
+    def test_parity_highlight_mode_defaults_to_mismatch_only(self) -> None:
+        self.assertEqual(parity_highlight_mode({}), "mismatch_only")
+        self.assertEqual(
+            parity_highlight_mode({"highlight_mode": "full"}),
+            "full",
+        )
+        self.assertEqual(
+            parity_highlight_mode({"skip_root_cause": True}),
+            "mismatch_only",
+        )
+        self.assertEqual(
+            parity_highlight_mode({"lightweight_highlight": True}),
+            "mismatch_only",
+        )
+
     def test_resolve_highlight_golden_prefers_reference(self) -> None:
         cfg = {
             "parity": {
@@ -40,6 +56,10 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
         from salary_pipeline.paths import CONFIG_DIR
 
         month_config = load_month_config(CONFIG_DIR)
+        month_config = {
+            **month_config,
+            "parity": {**month_config["parity"], "highlight_mode": "full"},
+        }
         summary = pd.DataFrame(
             {
                 "序号": [1],
@@ -82,11 +102,68 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
                 "salary_pipeline.pipelines.commission_summary_formatting.CommissionSummaryParity",
             ) as parity_cls:
                 parity_cls.return_value.collect_mismatches_from_files.return_value = []
-                stats = apply_commission_summary_highlighting(month_config, path)
+                stats = apply_commission_summary_highlighting(
+                    month_config, path, golden_path=path
+                )
             legend.assert_called_once()
             self.assertEqual(stats.mismatches, 3)
             self.assertEqual(stats.deferred, 5)
             self.assertEqual(stats.annotated, 2)
+
+    def test_lightweight_highlight_skips_enrich_and_deferred(self) -> None:
+        columns = ["店别", "职务", "姓名", "整车毛利"]
+        df = pd.DataFrame(
+            [{"店别": "西物", "职务": "销售顾问", "姓名": "张三", "整车毛利": 101.0}]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        month_config = {
+            "outputs": {"commission_summary_sheet": "提成汇总"},
+            "parity": {
+                "auto_highlight": True,
+                "highlight_mode": "mismatch_only",
+                "header_row": 2,
+                "data_start_row": 3,
+                "join_keys": ["店别", "职务", "姓名"],
+                "columns": ["整车毛利"],
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            computed = Path(tmp) / "computed.xlsx"
+            golden = Path(tmp) / "golden.xlsx"
+            builder.export_excel(df, computed)
+            builder.export_excel(df, golden)
+
+            with patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.enrich_cell_mismatches",
+                side_effect=AssertionError("enrich_cell_mismatches should not run"),
+            ) as enrich, patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.highlight_commission_summary_deferred_cells",
+                side_effect=AssertionError("deferred highlight should not run"),
+            ) as deferred, patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.add_commission_summary_annotations",
+                side_effect=AssertionError("annotations should not run"),
+            ) as annotations, patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.add_commission_summary_color_legend",
+            ), patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.CommissionSummaryParity",
+            ) as parity_cls, patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.highlight_commission_summary_mismatches",
+                return_value=1,
+            ):
+                parity_cls.return_value.collect_mismatches_from_files.return_value = []
+                stats = apply_commission_summary_highlighting(
+                    month_config,
+                    computed,
+                    golden_path=golden,
+                )
+
+            enrich.assert_not_called()
+            deferred.assert_not_called()
+            annotations.assert_not_called()
+            self.assertEqual(stats.mismatches, 1)
+            self.assertEqual(stats.deferred, 0)
+            self.assertEqual(stats.annotated, 0)
 
     def test_non_frontline_columns_present_after_export(self) -> None:
         summary = pd.DataFrame(

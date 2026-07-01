@@ -14,11 +14,6 @@ from salary_pipeline.calculators.non_frontline.classification import (
     non_frontline_tier,
     load_non_frontline_config,
 )
-from salary_pipeline.data_ingestion.data_loader import (
-    filter_comparable_rows,
-    read_golden_summary_sheet,
-    summary_frame_from_builder,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -34,63 +29,8 @@ def bootstrap_non_frontline_physical_columns(
     data_start_row: int = 3,
     config: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
-    """Fill non-frontline physical hub columns from golden when Hub/bootstrap left them empty.
-
-    Support rows (M–U) and management manual W/Y cells are mostly hand-filled in golden;
-    ``HubFormulaEngine`` only evaluates topology formulas and skips columns outside
-    ``HUB_COLUMN_MAP``. This runs before semantic migration so ``apply_non_frontline_columns``
-    can copy values into 岗位绩效 / 台次 / etc.
-    """
-    if summary.empty or golden_workbook is None or not golden_workbook.exists():
-        return summary
-
-    cfg = config or load_non_frontline_config()
-    golden = filter_comparable_rows(
-        summary_frame_from_builder(
-            read_golden_summary_sheet(
-                golden_workbook,
-                sheet_name,
-                header_row=header_row,
-                data_start_row=data_start_row,
-            )
-        )
-    )
-    if golden.empty:
-        return summary
-
-    golden_by_key = golden.set_index(list(_JOIN_KEYS), drop=False)
-    out = summary.copy()
-    filled = 0
-
-    for idx, row in out.iterrows():
-        tier = non_frontline_tier(row.get("店别"), row.get("职务"), config=cfg)
-        if tier is None:
-            continue
-        key = tuple(row.get(k) for k in _JOIN_KEYS)
-        try:
-            g_row = golden_by_key.loc[key]
-        except KeyError:
-            continue
-        if isinstance(g_row, pd.DataFrame):
-            g_row = g_row.iloc[0]
-
-        for hub_col in column_mapping_for_tier(tier, config=cfg):
-            if hub_col not in out.columns:
-                continue
-            if pd.notna(out.at[idx, hub_col]):
-                continue
-            g_val = g_row.get(hub_col)
-            if pd.notna(g_val):
-                out.at[idx, hub_col] = g_val
-                filled += 1
-
-    if filled:
-        logger.info(
-            "Non-frontline golden bootstrap: %s physical cells filled from %s",
-            filled,
-            golden_workbook.name,
-        )
-    return out
+    """No-op: golden bootstrap removed — non-frontline cells stay computed or empty."""
+    return summary
 
 
 def apply_non_frontline_columns(

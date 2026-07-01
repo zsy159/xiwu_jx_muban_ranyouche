@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 from openpyxl import load_workbook
+from openpyxl.utils import column_index_from_string
 
 from salary_pipeline.data_ingestion.data_loader import WorkbookLoader, normalize_name
 from salary_pipeline.calculators.performance_sheet.order_context import (
@@ -194,7 +195,7 @@ class HubFormulaEngine:
         *,
         computed_perf_frame: pd.DataFrame | None = None,
         use_golden_perf_sheet: bool = True,
-        bootstrap_from_golden: bool = True,
+        bootstrap_from_golden: bool = False,
     ) -> None:
         topo = json.loads(topology_path.read_text(encoding="utf-8"))
         self.cells: dict[str, dict[str, Any]] = topo["cells"]
@@ -609,6 +610,8 @@ class HubFormulaEngine:
             if value is None:
                 return None
             return 0.0 if pd.isna(value) else float(value)
+        if not self._bootstrap_from_golden:
+            return None
         value = self.loader.read_cell_value(HUB_SHEET, ref)
         if value is None or (isinstance(value, float) and pd.isna(value)):
             return None
@@ -628,6 +631,13 @@ class HubFormulaEngine:
 
     def _resolve_sheet_name(self, sheet: str) -> str:
         sheet = sheet or ""
+        if (
+            sheet.strip() == PERF_SHEET
+            and self._computed_perf_frame is not None
+            and not self._computed_perf_frame.empty
+            and not self._use_golden_perf_sheet
+        ):
+            return PERF_SHEET
         names = self.loader._workbook().sheetnames
         if sheet in names:
             return sheet
@@ -636,19 +646,38 @@ class HubFormulaEngine:
             return stripped
         if stripped == "二手置换" and USED_CAR_SHEET in names:
             return USED_CAR_SHEET
+        if stripped in self.loader.sheet_paths:
+            return stripped
+        if sheet in self.loader.sheet_paths:
+            return sheet
         raise KeyError(f"Worksheet {sheet} does not exist.")
 
     def _sheet_frame(self, sheet: str) -> pd.DataFrame:
-        sheet = self._resolve_sheet_name(sheet.strip())
+        if (
+            sheet.strip() == PERF_SHEET
+            and self._computed_perf_frame is not None
+            and not self._computed_perf_frame.empty
+            and not self._use_golden_perf_sheet
+        ):
+            resolved = PERF_SHEET
+        else:
+            resolved = self._resolve_sheet_name(sheet.strip())
+        sheet = resolved
         if sheet not in self._sheet_cache:
             if sheet == TASK_SHEET:
+                task_letters = {"C": "C", "F": "F", "Y": "Y", "Z": "Z"}
+                raw = self.loader._read_raw_sheet(sheet)
+                if raw.shape[1] >= column_index_from_string("AG"):
+                    task_letters["AG"] = "AG"
                 frame = self.loader.read_sheet_columns(
                     sheet,
-                    {"C": "C", "F": "F", "Y": "Y", "Z": "Z", "AG": "AG"},
+                    task_letters,
                     label=TASK_SHEET,
                 )
                 frame["C"] = frame["C"].map(normalize_name)
-                for col in ("F", "Y", "Z", "AG"):
+                for col in task_letters:
+                    if col == "C":
+                        continue
                     frame[col] = pd.to_numeric(frame[col], errors="coerce")
             elif sheet == PERF_SHEET:
                 if (

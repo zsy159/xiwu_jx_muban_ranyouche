@@ -29,17 +29,31 @@ def load_au_policy_by_vin(
     workbook_path: str,
     topology_path: str,
     perf_sheet: str = "绩效整理表",
+    policy_workbook_path: str | None = None,
 ) -> dict[str, tuple[int, int]]:
     """
     Map VIN → (min_inventory_days, bonus_amount) from golden AU formulas.
 
     Unknown VINs fall back to ``DEFAULT_AU_POLICY`` (IF(E>=180,500,0)).
     """
-    loader = WorkbookLoader(Path(workbook_path))
     topology = json.loads(Path(topology_path).read_text(encoding="utf-8"))
     cells = topology.get("cells") or {}
 
-    golden_o = loader.read_sheet_columns(perf_sheet, {"O": "O"}, label="au policy")
+    golden_o = None
+    for candidate_path in (workbook_path, policy_workbook_path):
+        if not candidate_path:
+            continue
+        try:
+            loader = WorkbookLoader(Path(candidate_path))
+            golden_o = loader.read_sheet_columns(
+                perf_sheet, {"O": "O"}, label="au policy"
+            )
+            break
+        except ValueError:
+            continue
+    if golden_o is None:
+        return {}
+
     golden_o = golden_o.iloc[DATA_START_ROW - 1 :].reset_index(drop=True)
 
     policy: dict[str, tuple[int, int]] = {}

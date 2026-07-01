@@ -53,6 +53,19 @@ def _sumifs_by_advisor(
     return float(pd.to_numeric(subset, errors="coerce").fillna(0).sum())
 
 
+def _read_hub_cell(
+    loader: WorkbookLoader,
+    ref: str,
+    *,
+    excel_row: int,
+    person: AdvisorPerformanceInput,
+) -> float | None:
+    try:
+        return loader.read_cell_value(HUB_SHEET, ref)
+    except KeyError:
+        return None
+
+
 def resolve_multiplier(
     ref: str | None,
     *,
@@ -67,13 +80,15 @@ def resolve_multiplier(
         row_num = int(ref[1:])
         if row_num == excel_row and person.sales_completion_rate > 0:
             return person.sales_completion_rate
-        val = loader.read_cell_value(HUB_SHEET, ref)
+        val = _read_hub_cell(loader, ref, excel_row=excel_row, person=person)
         if val is not None:
             return _num(val)
         return person.sales_completion_rate
     if ref.startswith("BA") or ref[0].isalpha():
-        val = loader.read_cell_value(HUB_SHEET, ref)
-        return _num(val)
+        val = _read_hub_cell(loader, ref, excel_row=excel_row, person=person)
+        if val is not None:
+            return _num(val)
+        return 1.0
     return 1.0
 
 
@@ -85,7 +100,10 @@ def resolve_sumif_criteria(
 ) -> Any:
     if not criteria_ref:
         return advisor_name
-    val = loader.read_cell_value(HUB_SHEET, criteria_ref.upper())
+    try:
+        val = loader.read_cell_value(HUB_SHEET, criteria_ref.upper())
+    except KeyError:
+        return advisor_name
     if val is None:
         return advisor_name
     return val

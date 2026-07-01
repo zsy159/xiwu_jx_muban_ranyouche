@@ -33,9 +33,9 @@ def _fill_static_hub_columns(
     excel_row: int,
     loader: WorkbookLoader,
     *,
-    bootstrap_from_golden: bool = True,
+    bootstrap_from_golden: bool = False,
 ) -> AdvisorPerformanceResult:
-    """无 topology 公式时回读金标准静态格（如韩柏成 Y134=1000）。"""
+    """无 topology 公式时不再回读金标准；留空由对账标灰提示手工填入。"""
     if not bootstrap_from_golden:
         return result
     cells = _topology_cells()
@@ -69,7 +69,7 @@ def build_eval_perf_frame(
         loader,
         computed_perf_frame=computed,
         use_golden_perf_sheet=use_golden_perf_sheet,
-        bootstrap_from_golden=not use_golden_perf_sheet,
+        bootstrap_from_golden=False,
     )
     return engine._sheet_frame(PERF_SHEET)
 

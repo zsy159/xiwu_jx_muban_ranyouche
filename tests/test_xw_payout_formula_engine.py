@@ -7,7 +7,8 @@ import yaml
 
 from salary_pipeline.data_ingestion.data_loader import WorkbookLoader
 from salary_pipeline.modules.payout_skeleton import read_payout_skeleton
-from salary_pipeline.paths import CONFIG_DIR, resolve_project_path
+from salary_pipeline.paths import CONFIG_DIR, PROJECT_ROOT, resolve_project_path
+from salary_pipeline.pipelines.xw_payout import ChannelPayoutPipeline
 from salary_pipeline.pipelines.xw_payout_formula_engine import (
     XW_CONFIG,
     XwPayoutFormulaEngine,
@@ -48,6 +49,40 @@ class XwPayoutFormulaEngineTests(unittest.TestCase):
             "=SUMIF(西物基本!C:C,D3,西物基本!P:P)", 3, "熊杰文"
         )
         self.assertIsNotNone(value)
+
+
+    @unittest.skipUnless(
+        (PROJECT_ROOT / "output/2026-05/提成汇总.xlsx").exists(),
+        "computed hub missing",
+    )
+    def test_payout_sumif_uses_computed_hub_for_tangcao(self) -> None:
+        from salary_pipeline.data_ingestion.hub_frame_loader import build_hub_sumif_frame
+        from salary_pipeline.data_ingestion.data_loader import normalize_name
+
+        computed = resolve_project_path(
+            self.month_cfg["outputs"]["commission_summary_file"]
+        )
+        hub_frame = build_hub_sumif_frame(self.workbook, computed_workbook=computed)
+        row = hub_frame[hub_frame["D"].map(normalize_name) == "唐操"].iloc[0]
+        self.assertAlmostEqual(float(row["W"]), 861.5385, places=2)
+        self.assertAlmostEqual(float(row["X"]), -952.1525, places=2)
+
+    def test_resolve_hub_context_from_month_config(self) -> None:
+        pipeline = ChannelPayoutPipeline("xw", CONFIG_DIR)
+        hub_rel = pipeline.month_config["outputs"].get("commission_summary_file")
+        if not hub_rel:
+            self.skipTest("commission_summary_file not configured")
+        computed = resolve_project_path(hub_rel)
+        if not computed.exists():
+            self.skipTest("computed hub missing")
+
+        path, use = pipeline._resolve_hub_context({})
+        self.assertTrue(use)
+        self.assertEqual(path, computed)
+
+        path2, use2 = pipeline._resolve_hub_context({"use_computed_hub": False})
+        self.assertFalse(use2)
+        self.assertIsNone(path2)
 
 
 if __name__ == "__main__":

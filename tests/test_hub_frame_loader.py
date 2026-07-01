@@ -1,4 +1,4 @@
-"""Tests for hub frame merge loader."""
+"""Tests for hub frame loader (computed-only SUMIF source)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,11 @@ from pathlib import Path
 import pandas as pd
 
 from salary_pipeline.data_ingestion.hub_frame_loader import (
-    COMPUTED_HUB_OVERRIDE_LETTERS,
     PAYOUT_HUB_LETTERS,
     build_hub_sumif_frame,
+    detect_hub_data_start_row,
     read_hub_columns_by_letter,
+    read_hub_columns_mapped,
 )
 from salary_pipeline.data_ingestion.data_loader import normalize_name
 from salary_pipeline.paths import PROJECT_ROOT
@@ -29,43 +30,52 @@ class HubFrameLoaderTest(unittest.TestCase):
         self.assertIn("W", frame.columns)
         self.assertGreater(len(frame), 0)
 
-    def test_merge_overrides_f_from_computed(self) -> None:
-        if not COMPUTED.exists():
-            self.skipTest("computed hub missing")
-        merged = build_hub_sumif_frame(GOLDEN, computed_workbook=COMPUTED, letters=["D", "F"])
-        computed = read_hub_columns_by_letter(COMPUTED, letters=["F", "D"])
-        golden = read_hub_columns_by_letter(GOLDEN, letters=["F", "D"])
-        lookup = computed.set_index(computed["D"].map(normalize_name))["F"]
-        for name, f_val in lookup.items():
-            if pd.isna(f_val):
-                continue
-            mask = golden["D"].map(normalize_name) == name
-            self.assertTrue(mask.any(), f"missing golden row for {name}")
-            self.assertAlmostEqual(
-                float(merged.loc[mask, "F"].iloc[0]),
-                float(f_val),
-                places=6,
-                msg=f"F mismatch for {name}",
-            )
+    def test_detect_data_start_row_golden(self) -> None:
+        self.assertEqual(detect_hub_data_start_row(GOLDEN), 3)
 
-    def test_merge_only_overrides_f_through_p(self) -> None:
-        if not COMPUTED.exists():
-            self.skipTest("computed hub missing")
+    @unittest.skipUnless(COMPUTED.exists(), "computed hub missing")
+    def test_detect_data_start_row_computed_with_legend(self) -> None:
+        self.assertEqual(detect_hub_data_start_row(COMPUTED), 4)
+
+    @unittest.skipUnless(COMPUTED.exists(), "computed hub missing")
+    def test_computed_only_frame_uses_computed_w_x(self) -> None:
         merged = build_hub_sumif_frame(GOLDEN, computed_workbook=COMPUTED)
-        golden = read_hub_columns_by_letter(GOLDEN, letters=["D", "AC", "W"])
-        name = "何剑"
+        computed = read_hub_columns_mapped(COMPUTED, letters=["W", "X", "D"])
+        name = "唐操"
+        lookup = computed.set_index(computed["D"].map(normalize_name))
+        self.assertIn(name, lookup.index)
+        m = merged[merged["D"].map(normalize_name) == name].iloc[0]
+        self.assertAlmostEqual(float(m["W"]), float(lookup.loc[name, "W"]), places=4)
+        self.assertAlmostEqual(float(m["X"]), float(lookup.loc[name, "X"]), places=4)
+
+    @unittest.skipUnless(COMPUTED.exists(), "computed hub missing")
+    def test_computed_only_does_not_use_golden_w(self) -> None:
+        merged = build_hub_sumif_frame(GOLDEN, computed_workbook=COMPUTED)
+        golden = read_hub_columns_by_letter(GOLDEN, letters=["D", "W"])
+        name = "唐操"
         g = golden[golden["D"].map(normalize_name) == name].iloc[0]
         m = merged[merged["D"].map(normalize_name) == name].iloc[0]
-        self.assertEqual(float(g["AC"]), float(m["AC"]))
-        self.assertEqual(float(g["W"]), float(m["W"]))
+        self.assertNotAlmostEqual(
+            float(m["W"]),
+            float(g["W"]),
+            places=2,
+            msg="W must come from computed hub, not golden",
+        )
 
-    def test_override_letters_are_f_to_p(self) -> None:
-        self.assertEqual(COMPUTED_HUB_OVERRIDE_LETTERS[0], "F")
-        self.assertEqual(COMPUTED_HUB_OVERRIDE_LETTERS[-1], "P")
+    @unittest.skipUnless(COMPUTED.exists(), "computed hub missing")
+    def test_all_payout_letters_from_computed(self) -> None:
+        merged = build_hub_sumif_frame(GOLDEN, computed_workbook=COMPUTED)
+        for letter in PAYOUT_HUB_LETTERS:
+            self.assertIn(letter, merged.columns)
 
-    def test_payout_letters_subset(self) -> None:
-        frame = read_hub_columns_by_letter(GOLDEN, letters=PAYOUT_HUB_LETTERS[:6])
-        self.assertEqual(len(frame.columns), 6)
+    def test_missing_computed_returns_empty_numeric_columns(self) -> None:
+        merged = build_hub_sumif_frame(
+            GOLDEN,
+            computed_workbook=Path("/nonexistent/hub.xlsx"),
+            letters=["D", "W"],
+        )
+        self.assertIn("D", merged.columns)
+        self.assertTrue(merged["W"].isna().all())
 
 
 if __name__ == "__main__":

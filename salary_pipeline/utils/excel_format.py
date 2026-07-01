@@ -36,7 +36,7 @@ MANUAL_DEFERRED_FILL = PatternFill(
 MANUAL_DEFERRED_FILL_RGB = "FFBDD7EE"
 MANUAL_DEFERRED_FILL_COMMENT = "公式含手工录入，对账暂缓"
 
-# Light gray — golden 提成汇总 cells with no formula (direct static value).
+# Light gray — cells requiring manual entry (no evaluable hub formula).
 GOLDEN_STATIC_FILL = PatternFill(
     start_color="FFD9D9D9",
     end_color="FFD9D9D9",
@@ -44,7 +44,7 @@ GOLDEN_STATIC_FILL = PatternFill(
 )
 GOLDEN_STATIC_FILL_RGB = "FFD9D9D9"
 
-STATIC_FILL_COMMENT = "金标准直接填数，无公式"
+STATIC_FILL_COMMENT = "需要手工填入"
 
 _HIGHLIGHT_FILL_RGBS = frozenset(
     {MANUAL_DEFERRED_FILL_RGB, GOLDEN_STATIC_FILL_RGB}
@@ -59,7 +59,7 @@ FORMULA_ANOMALY_FILL = PatternFill(
 FORMULA_ANOMALY_FILL_RGB = "FFFCE4D6"
 
 _COMMISSION_SUMMARY_LEGEND_ITEMS: tuple[tuple[PatternFill, str], ...] = (
-    (GOLDEN_STATIC_FILL, "浅灰 #D9D9D9：金标准直接填数"),
+    (GOLDEN_STATIC_FILL, "浅灰 #D9D9D9：需要手工填入"),
     (MANUAL_DEFERRED_FILL, "浅蓝 #BDD7EE：公式含手工"),
     (PARITY_MISMATCH_FILL, "琥珀 #FFEB9C：数值不一致"),
     (FORMULA_ANOMALY_FILL, "浅橙 #FCE4D6：公式形态异常"),
@@ -308,12 +308,12 @@ def highlight_commission_summary_deferred_cells(
     static_comment: str = STATIC_FILL_COMMENT,
     deferred_comment: str = MANUAL_DEFERRED_FILL_COMMENT,
 ) -> int:
-    """Highlight parity-deferred and golden static (直接填数) cells in 提成汇总.
+    """Highlight parity-deferred and manual-fill cells in 提成汇总.
 
     Rows are matched by 姓名 + 职务 (not 店别). ``deferred_cells`` is keyed by 姓名
     and filtered to ``role_title``; ``static_cells`` is keyed by (姓名, 职务).
 
-    Fill colors: gray = 金标准直填（无公式）；blue = 公式含手工（wa_parity_deferred、二网 AH、topology 尾项常数）。
+    Fill colors: gray = 需要手工填入（无公式）；blue = 公式含手工（wa_parity_deferred、二网 AH、topology 尾项常数）。
     Deferred wins when a cell appears in both maps.
     """
     static_cells = static_cells or {}

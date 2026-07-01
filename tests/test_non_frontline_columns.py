@@ -164,7 +164,7 @@ class TestNonFrontlineColumns(unittest.TestCase):
 
 
 class TestNonFrontlineBootstrap(unittest.TestCase):
-    def test_bootstrap_fills_support_physical_columns_from_golden(self) -> None:
+    def test_bootstrap_is_noop(self) -> None:
         golden = pd.DataFrame(
             [
                 {
@@ -172,9 +172,6 @@ class TestNonFrontlineBootstrap(unittest.TestCase):
                     "职务": "会计",
                     "姓名": "罗涵",
                     "综合毛利": 742.0,
-                    "主营单台毛利": 2.0,
-                    "整车绩效": 2700.0,
-                    "加装绩效": 1484.0,
                 },
             ]
         )
@@ -185,25 +182,15 @@ class TestNonFrontlineBootstrap(unittest.TestCase):
                     "职务": "会计",
                     "姓名": "罗涵",
                     "综合毛利": pd.NA,
-                    "主营单台毛利": pd.NA,
-                    "整车绩效": pd.NA,
-                    "加装绩效": pd.NA,
                 },
             ]
         )
-        builder = CommissionSummaryBuilder(
-            template_columns=list(golden.columns),
-        )
+        builder = CommissionSummaryBuilder(template_columns=list(golden.columns))
         with tempfile.TemporaryDirectory() as tmp:
             golden_path = Path(tmp) / "golden.xlsx"
             builder.export_excel(golden, golden_path)
             bootstrapped = bootstrap_non_frontline_physical_columns(summary, golden_path)
-            out = apply_non_frontline_columns(bootstrapped)
-        row = out.iloc[0]
-        self.assertEqual(float(row["台次"]), 742.0)
-        self.assertEqual(float(row["提成系数"]), 2.0)
-        self.assertEqual(float(row["岗位绩效"]), 2700.0)
-        self.assertEqual(float(row["业绩绩效1"]), 1484.0)
+        self.assertTrue(pd.isna(bootstrapped.iloc[0]["综合毛利"]))
 
 
 class TestNonFrontlineHighlightMapping(unittest.TestCase):

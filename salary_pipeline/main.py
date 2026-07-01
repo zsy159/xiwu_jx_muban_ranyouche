@@ -21,6 +21,10 @@ from salary_pipeline.pipelines.run_cache import (
 from salary_pipeline.pipelines.commission_summary_formatting import (
     apply_commission_summary_highlighting,
 )
+from salary_pipeline.pipelines.payout_formatting import (
+    apply_payout_highlighting,
+    resolve_payout_compare_columns,
+)
 from salary_pipeline.pipelines.sales import SalesPipeline
 from salary_pipeline.pipelines.aftersales import AftersalesPipeline
 from salary_pipeline.pipelines.aftersales_formula_engine import (
@@ -313,12 +317,23 @@ def _payout_channel_label(channel: str) -> str:
 def cmd_compute_payout(args: argparse.Namespace) -> int:
     channel = args.channel
     pipeline = ChannelPayoutPipeline(channel, CONFIG_DIR)
-    result = pipeline.run()
+    context: dict = {}
+    if getattr(args, "golden_hub", False):
+        logging.warning(
+            "--golden-hub is deprecated and ignored; "
+            "payout SUMIF always uses computed 提成汇总.xlsx"
+        )
+    result = pipeline.run(context=context or None)
     label = _payout_channel_label(channel)
     print(f"[compute-payout] {label} 已生成: {result['output_path']}")
+    hub_note = (
+        f"hub=computed ({result['hub_path'].name})"
+        if result.get("use_computed_hub") and result.get("hub_path")
+        else "hub=computed (missing — SUMIF columns empty)"
+    )
     print(
         f"[compute-payout] shape={result['summary'].shape} "
-        f"warnings={len(result['warnings'])}"
+        f"warnings={len(result['warnings'])} {hub_note}"
     )
     if args.reconcile:
         return cmd_reconcile_payout(
@@ -351,12 +366,14 @@ def cmd_reconcile_payout(args: argparse.Namespace) -> int:
     )
     report_dir = _report_dir(config, args)
     column_map = PAYOUT_CHANNEL_COLUMN_MAPS.get(channel, XW_COLUMN_MAP)
+    compare_columns = resolve_payout_compare_columns(parity_cfg, column_map)
 
     checker = CommissionSummaryParity(
         join_keys=parity_cfg.get("join_keys", ["店别", "职务", "姓名"]),
         numeric_tolerance=float(parity_cfg.get("numeric_tolerance", 1e-4)),
-        columns=parity_cfg.get("columns"),
+        columns=compare_columns,
         role_column=parity_cfg.get("role_column", "店别"),
+        literal_columns=True,
     )
     report = checker.compare_payout_files(
         computed_path,
@@ -366,6 +383,8 @@ def cmd_reconcile_payout(args: argparse.Namespace) -> int:
         data_start_row=int(parity_cfg.get("data_start_row", 3)),
     )
     json_path, md_path = write_diff_report(report, report_dir)
+
+    apply_payout_highlighting(config, computed_path, channel)
 
     label = _payout_channel_label(channel)
     print(f"[reconcile-payout] {label} 整体: {'通过' if report.overall_passed else '未通过'}")
@@ -526,6 +545,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="发薪渠道（默认 xw）",
     )
     compute_po.add_argument("--reconcile", action="store_true")
+    compute_po.add_argument(
+        "--golden-hub",
+        action="store_true",
+        help="已废弃：发薪 SUMIF 固定使用 computed 提成汇总",
+    )
     compute_po.add_argument("--golden", help="金标准工作簿路径")
     compute_po.add_argument("--sheet", default=None)
     compute_po.add_argument("--report-dir", default=None)

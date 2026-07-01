@@ -136,6 +136,7 @@ class CommissionSummaryParity:
         golden_workbook: Path | None = None,
         computed_perf_path: Path | None = None,
         deferred_cells: dict[str, frozenset[str]] | None = None,
+        literal_columns: bool = False,
     ) -> None:
         self.join_keys = join_keys or ["店别", "职务", "姓名"]
         self.numeric_tolerance = numeric_tolerance
@@ -145,7 +146,13 @@ class CommissionSummaryParity:
         self.golden_workbook = golden_workbook
         self.computed_perf_path = computed_perf_path
         self.deferred_cells = deferred_cells
+        self.literal_columns = literal_columns
         self._erwang_ah_adjustments: dict[str, float] | None = None
+
+    def _parity_columns(self, shop: Any, role: Any, column: str) -> tuple[str, str]:
+        if self.literal_columns:
+            return column, column
+        return parity_compare_columns(shop, role, column)
 
     def compare(
         self,
@@ -225,7 +232,12 @@ class CommissionSummaryParity:
         header_row: int = 2,
         data_start_row: int = 3,
     ) -> ParityReport:
-        computed = read_computed_summary_excel(computed_path)
+        computed = read_computed_summary_excel(
+            computed_path,
+            golden_sheet,
+            header_row=header_row,
+            data_start_row=data_start_row,
+        )
         golden = read_golden_summary_sheet(
             golden_workbook,
             golden_sheet,
@@ -336,6 +348,48 @@ class CommissionSummaryParity:
         *,
         data_start_row: int = 3,
     ) -> ParityReport:
+        computed, golden = self._load_payout_frames(
+            computed_path,
+            golden_workbook,
+            golden_sheet,
+            column_map,
+            data_start_row=data_start_row,
+        )
+        return self.compare(
+            computed,
+            golden,
+            golden_source=f"{golden_workbook.name}!{golden_sheet}",
+            computed_source=str(computed_path),
+        )
+
+    def collect_payout_mismatches_from_files(
+        self,
+        computed_path: Path,
+        golden_workbook: Path,
+        golden_sheet: str,
+        column_map: dict[str, str],
+        *,
+        data_start_row: int = 3,
+    ) -> list[CellMismatch]:
+        """Per-cell payout mismatches for Excel highlighting (same rules as compare)."""
+        computed, golden = self._load_payout_frames(
+            computed_path,
+            golden_workbook,
+            golden_sheet,
+            column_map,
+            data_start_row=data_start_row,
+        )
+        return self.collect_cell_mismatches(computed, golden)
+
+    def _load_payout_frames(
+        self,
+        computed_path: Path,
+        golden_workbook: Path,
+        golden_sheet: str,
+        column_map: dict[str, str],
+        *,
+        data_start_row: int = 3,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         from salary_pipeline.data_ingestion.data_loader import (
             read_computed_payout_excel,
             read_payout_metric_frame,
@@ -348,12 +402,7 @@ class CommissionSummaryParity:
             column_map,
             data_start_row=data_start_row,
         )
-        return self.compare(
-            computed,
-            golden,
-            golden_source=f"{golden_workbook.name}!{golden_sheet}",
-            computed_source=str(computed_path),
-        )
+        return computed, golden
 
     def _with_workbook_paths(
         self,
@@ -373,6 +422,7 @@ class CommissionSummaryParity:
             role_column=self.role_column,
             golden_workbook=golden_workbook,
             computed_perf_path=perf_path,
+            literal_columns=self.literal_columns,
         )
 
     def _erwang_adjustments(self) -> dict[str, float]:
@@ -493,8 +543,8 @@ class CommissionSummaryParity:
 
             for idx in merged.index:
                 row = merged.loc[idx]
-                shop, role = self._row_shop_role(row)
-                golden_col, computed_col = parity_compare_columns(shop, role, col)
+                shop, row_role = self._row_shop_role(row)
+                golden_col, computed_col = self._parity_columns(shop, row_role, col)
                 g_col, c_col = self._resolve_merged_cols(merged, golden_col, computed_col)
                 if g_col is None or c_col is None:
                     continue
@@ -511,7 +561,7 @@ class CommissionSummaryParity:
                 still_mismatch = self._apply_parity_skips(
                     merged.loc[[idx]],
                     pd.Series([True], index=[idx]),
-                    role=str(role),
+                    role=str(row_role),
                     column=col,
                     g_col=g_col,
                     c_col=c_col,
@@ -574,8 +624,8 @@ class CommissionSummaryParity:
         for col in compare_columns:
             for idx in merged.index:
                 row = merged.loc[idx]
-                shop, role = self._row_shop_role(row)
-                golden_col, computed_col = parity_compare_columns(shop, role, col)
+                shop, row_role = self._row_shop_role(row)
+                golden_col, computed_col = self._parity_columns(shop, row_role, col)
                 g_col, c_col = self._resolve_merged_cols(merged, golden_col, computed_col)
                 if g_col is None or c_col is None:
                     continue
@@ -592,7 +642,7 @@ class CommissionSummaryParity:
                 still_mismatch = self._apply_parity_skips(
                     merged.loc[[idx]],
                     pd.Series([True], index=[idx]),
-                    role=role,
+                    role=str(row_role),
                     column=col,
                     g_col=g_col,
                     c_col=c_col,
@@ -607,7 +657,11 @@ class CommissionSummaryParity:
                 cells.append(
                     CellMismatch(
                         join_values=join_values,
-                        column=highlight_column_for_row(shop, role, col),
+                        column=(
+                            col
+                            if self.literal_columns
+                            else highlight_column_for_row(shop, row_role, col)
+                        ),
                         golden_value=_cell_float(g_val),
                         computed_value=_cell_float(c_val),
                     )
@@ -759,7 +813,12 @@ def _compare_gated_performance(
     header_row = int(parity_cfg.get("header_row", 2))
     data_start_row = int(parity_cfg.get("data_start_row", 3))
 
-    computed = read_computed_summary_excel(computed_path)
+    computed = read_computed_summary_excel(
+        computed_path,
+        golden_sheet,
+        header_row=header_row,
+        data_start_row=data_start_row,
+    )
     golden = read_golden_summary_sheet(
         golden_workbook,
         golden_sheet,

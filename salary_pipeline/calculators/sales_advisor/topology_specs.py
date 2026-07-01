@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
-from openpyxl.utils import column_index_from_string
+from openpyxl.utils import column_index_from_string, get_column_letter
 
+from salary_pipeline.calculators.non_frontline.classification import (
+    column_mapping_for_tier,
+    load_non_frontline_config,
+)
 from salary_pipeline.calculators.sales_advisor.types import HubColumnFormula
 from salary_pipeline.data_ingestion.data_loader import normalize_header, normalize_name
 from salary_pipeline.pipelines.hub_formula_engine import HUB_COLUMN_MAP, HUB_SHEET
@@ -174,25 +178,38 @@ def _formula_has_cell_or_range_reference(formula: str) -> bool:
     return False
 
 
-def is_manual_formula_adjustment(formula: str) -> bool:
-    """True when golden formula embeds a manual numeric constant.
+def is_pure_direct_fill_formula(formula: str) -> bool:
+    """True for golden formulas that are only constants or pure arithmetic.
 
-    Covers hardcoded ``=-140`` / ``=100``, pure arithmetic without references
-    (``=189*20``), and trailing arithmetic such as ``=SUMIFS(...)-100`` or
-    ``=AH80-100``.
+    Examples: ``=100``, ``=-140``, ``=189*20``, ``=462+101+77+102``.
+    These are treated as 金标准直接填数 (gray), not formula-with-manual (blue).
     """
     text = formula.strip()
     if not text.startswith("="):
         return False
     if _PURE_CONST_FORMULA_RE.match(text):
         return True
-    if "#REF!" in text.upper():
-        return False
-    if _MANUAL_TAIL_ARITH_RE.search(text):
-        return True
     if not _formula_has_cell_or_range_reference(text) and _PURE_ARITH_FORMULA_RE.match(
         text
     ):
+        return True
+    return False
+
+
+def is_manual_formula_adjustment(formula: str) -> bool:
+    """True when golden formula embeds a manual numeric constant on a real formula.
+
+    Covers trailing arithmetic such as ``=SUMIFS(...)-100`` or ``=AH80-100``.
+    Pure constants / pure arithmetic without references are static fills, not deferred.
+    """
+    text = formula.strip()
+    if not text.startswith("="):
+        return False
+    if is_pure_direct_fill_formula(text):
+        return False
+    if "#REF!" in text.upper():
+        return False
+    if _MANUAL_TAIL_ARITH_RE.search(text):
         return True
     return False
 
@@ -229,8 +246,56 @@ def _is_direct_fill_value(value: Any) -> bool:
         text = value.strip()
         if not text or text in _SECTION_LABEL_STRINGS:
             return False
+        if text.startswith("="):
+            return is_pure_direct_fill_formula(text)
         return True
     return False
+
+
+def _static_fill_allowed_columns() -> frozenset[str]:
+    """Hub W–AI / F–P columns plus non-frontline physical columns (M–U, etc.)."""
+    cols = set(HUB_COLUMN_MAP.values())
+    cfg = load_non_frontline_config()
+    for tier in ("management", "support"):
+        cols.update(column_mapping_for_tier(tier, config=cfg).keys())
+    return frozenset(cols)
+
+
+def _resolve_scan_column_index(
+    col_name: str,
+    col_map: dict[str, int],
+    letter_by_column: dict[str, str],
+) -> int | None:
+    if col_name in col_map:
+        return col_map[col_name]
+    letter = letter_by_column.get(col_name)
+    if letter is None:
+        return None
+    return column_index_from_string(letter)
+
+
+def _topo_key_for_column(
+    sheet_name: str,
+    row_idx: int,
+    col_name: str,
+    col_idx: int,
+    letter_by_column: dict[str, str],
+) -> str:
+    letter = letter_by_column.get(col_name) or get_column_letter(col_idx)
+    return f"{sheet_name}!{letter}{row_idx}"
+
+
+def _cell_needs_manual_fill(topo_cell: dict[str, Any]) -> bool:
+    """True when topology has no evaluable formula (manual entry required)."""
+    formula = str(topo_cell.get("formula") or "").strip()
+    if not formula:
+        return True
+    return is_pure_direct_fill_formula(formula)
+
+
+def _cell_is_golden_static_fill(raw_value: Any, topo_cell: dict[str, Any]) -> bool:
+    """Topology-only: manual fill when no evaluable formula (golden value ignored)."""
+    return _cell_needs_manual_fill(topo_cell)
 
 
 def collect_topology_static_fill_cells(
@@ -241,11 +306,12 @@ def collect_topology_static_fill_cells(
     header_row: int = 2,
     data_start_row: int = 3,
     data_columns: frozenset[str] | None = None,
+    letter_by_column: dict[str, str] | None = None,
 ) -> dict[tuple[str, str], frozenset[str]]:
-    """Detect golden 提成汇总 cells with no formula (topology + workbook).
+    """Detect 提成汇总 cells that require manual entry (topology-only).
 
-    Static cells are often absent from topology JSON; formula presence is checked
-    on the golden workbook when topology has no entry.
+    Marks cells with no evaluable formula or pure constant formulas. Does not
+    copy golden values into computed output — only drives gray highlight.
     """
     config = load_month_config(CONFIG_DIR)
     topo_path = topology_path or resolve_project_path(config["topology"]["sales"])
@@ -253,7 +319,7 @@ def collect_topology_static_fill_cells(
         config["workbooks"]["sales"]
     )
     topo_cells = _load_topology_cells(topo_path)
-    allowed_columns = data_columns or frozenset(HUB_COLUMN_MAP.values())
+    allowed_columns = data_columns or _static_fill_allowed_columns()
 
     wb = load_workbook(golden_path, data_only=False, read_only=True)
     if sheet_name not in wb.sheetnames:
@@ -273,7 +339,9 @@ def collect_topology_static_fill_cells(
         wb.close()
         return {}
 
-    letter_by_column = {name: letter for letter, name in HUB_COLUMN_MAP.items()}
+    letter_map = letter_by_column or {
+        name: letter for letter, name in HUB_COLUMN_MAP.items()
+    }
     out: dict[tuple[str, str], set[str]] = {}
 
     for row_idx in range(data_start_row, ws.max_row + 1):
@@ -283,15 +351,14 @@ def collect_topology_static_fill_cells(
         role = normalize_name(ws.cell(row=row_idx, column=role_col).value) or ""
 
         for col_name in allowed_columns:
-            letter = letter_by_column.get(col_name)
-            if letter is None:
+            col_idx = _resolve_scan_column_index(col_name, col_map, letter_map)
+            if col_idx is None:
                 continue
-            col_idx = column_index_from_string(letter)
             raw = ws.cell(row=row_idx, column=col_idx).value
-            topo_key = f"{sheet_name}!{letter}{row_idx}"
-            if _cell_has_formula(raw, topo_cells.get(topo_key, {})):
-                continue
-            if not _is_direct_fill_value(raw):
+            topo_key = _topo_key_for_column(
+                sheet_name, row_idx, col_name, col_idx, letter_map
+            )
+            if not _cell_is_golden_static_fill(raw, topo_cells.get(topo_key, {})):
                 continue
             out.setdefault((name, role), set()).add(col_name)
 
@@ -315,7 +382,7 @@ def collect_topology_manual_formula_cells(
         config["workbooks"]["sales"]
     )
     topo_cells = _load_topology_cells(topo_path)
-    allowed_columns = data_columns or frozenset(HUB_COLUMN_MAP.values())
+    allowed_columns = data_columns or _static_fill_allowed_columns()
 
     wb = load_workbook(golden_path, data_only=False, read_only=True)
     if sheet_name not in wb.sheetnames:
@@ -345,16 +412,19 @@ def collect_topology_manual_formula_cells(
         role = normalize_name(ws.cell(row=row_idx, column=role_col).value) or ""
 
         for col_name in allowed_columns:
-            letter = letter_by_column.get(col_name)
-            if letter is None:
+            col_idx = _resolve_scan_column_index(col_name, col_map, letter_by_column)
+            if col_idx is None:
                 continue
-            col_idx = column_index_from_string(letter)
             raw = ws.cell(row=row_idx, column=col_idx).value
-            topo_key = f"{sheet_name}!{letter}{row_idx}"
+            topo_key = _topo_key_for_column(
+                sheet_name, row_idx, col_name, col_idx, letter_by_column
+            )
             topo_cell = topo_cells.get(topo_key, {})
             if not _cell_has_formula(raw, topo_cell):
                 continue
             formula = _cell_formula_text(raw, topo_cell)
+            if is_pure_direct_fill_formula(formula):
+                continue
             if not is_manual_formula_adjustment(formula):
                 continue
             out.setdefault((name, role), set()).add(col_name)

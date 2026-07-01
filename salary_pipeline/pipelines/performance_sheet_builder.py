@@ -105,6 +105,17 @@ class PerformanceSheetBuilder:
             "billing_month"
         )
         self._topology_path = self._resolve_topology_path()
+        self._policy_workbook_path = self._resolve_policy_workbook_path()
+
+    def _resolve_policy_workbook_path(self) -> Path | None:
+        try:
+            month_cfg = load_month_config()
+            rel = (month_cfg.get("parity") or {}).get("golden_workbook")
+            if rel:
+                return resolve_project_path(rel)
+        except (KeyError, TypeError, ValueError):
+            pass
+        return None
 
     def _resolve_topology_path(self) -> Path | None:
         try:
@@ -245,6 +256,7 @@ class PerformanceSheetBuilder:
             self.loader,
             target_cols=overdue_stock_cols,
             topology_path=self._topology_path,
+            policy_workbook_path=self._policy_workbook_path,
         )
         out = partial.copy()
         for col in closure_cols:

@@ -34,6 +34,7 @@ from salary_pipeline.ingestion_upload.sheet_merge import (
     build_consolidated_workbook,
     needs_openpyxl_merge,
     plan_sheet_sources,
+    supplement_sheet_sources,
 )
 
 
@@ -298,6 +299,33 @@ class UploadIntakeTest(unittest.TestCase):
             "output/2099-07/提成汇总.xlsx",
         )
         self.assertTrue(config_path.exists())
+
+    def test_supplement_sheet_sources_finds_task_upload(self) -> None:
+        import yaml
+
+        from salary_pipeline.data_ingestion.data_loader import build_workbook_loader
+        from salary_pipeline.paths import resolve_project_path
+
+        config = yaml.safe_load(
+            (Path(__file__).resolve().parents[1] / "salary_pipeline/config/month.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        sales_path = resolve_project_path(config["workbooks"]["sales"])
+        task_upload = sales_path.parent / "uploads" / "销售任务及完成率.xlsx"
+        if not task_upload.is_file():
+            self.skipTest("2026-02 销售任务及完成率 upload not present")
+
+        supplemented = supplement_sheet_sources(sales_path, {})
+        self.assertIn("销售任务及完成率", supplemented)
+        self.assertEqual(supplemented["销售任务及完成率"].resolve(), task_upload.resolve())
+
+        loader = build_workbook_loader({"month_config": config})
+        frame = loader.read_sales_task_sheet()
+        tang = frame[frame["姓名"] == "唐鹏"]
+        self.assertFalse(tang.empty)
+        self.assertEqual(float(tang.iloc[0]["考核量"]), 5.0)
+        self.assertEqual(float(tang.iloc[0]["实际销量"]), 3.0)
 
     def test_overrides_roundtrip(self) -> None:
         import pandas as pd

@@ -40,6 +40,9 @@ from salary_pipeline.pipelines.performance_overlay import (
     clear_bootstrap_for_overlay,
     overlay_module_metrics,
 )
+from salary_pipeline.pipelines.performance_sheet_export import (
+    export_computed_performance_sheet,
+)
 from salary_pipeline.pipelines.run_cache import (
     compute_input_fingerprint,
     normalize_overlay_keys,
@@ -92,6 +95,14 @@ class SalesPipeline:
         self.registry = ModuleRegistry()
         self.registry.register(SummarySkeletonModule())
         self.summary_builder = CommissionSummaryBuilder()
+
+    def _attach_excel_rows(self, summary: Any) -> Any:
+        if summary is None or summary.empty or "_excel_row" in summary.columns:
+            return summary
+        start = int(self.month_config.get("parity", {}).get("data_start_row", 3))
+        out = summary.copy()
+        out["_excel_row"] = [start + i for i in range(len(out))]
+        return out
 
     def _run_overlays(
         self,
@@ -147,10 +158,11 @@ class SalesPipeline:
                 loader,
                 computed_perf_frame=computed_perf,
                 use_golden_perf_sheet=perf_cfg.get("use_golden_perf_sheet", True),
-                bootstrap_from_golden=hub_cfg.get("bootstrap_from_golden", True),
+                bootstrap_from_golden=hub_cfg.get("bootstrap_from_golden", False),
             )
             _report_progress(ctx, "hub_formula", "Hub 公式回放…")
             summary = hub_calc.apply(summary)
+            ctx["summary_skeleton"] = self._attach_excel_rows(summary)
             if perf_result.metadata.get("rows"):
                 logger.info(
                     "Performance sheet wired: %s rows, %s cols",
@@ -167,6 +179,8 @@ class SalesPipeline:
             _report_progress(ctx, "load_hub", "加载 Hub 快照…")
             summary, computed_perf = load_hub_snapshot(cache_dir)
             ctx["computed_perf_frame"] = computed_perf
+            summary = self._attach_excel_rows(summary)
+            ctx["summary_skeleton"] = summary
             logger.info(
                 "Loaded hub snapshot from %s (summary %s rows, perf %s rows)",
                 cache_dir,
@@ -213,9 +227,36 @@ class SalesPipeline:
         self.summary_builder.export_excel(summary, output_path, sheet_name=sheet_name)
         apply_commission_summary_highlighting(self.month_config, output_path)
 
+        performance_sheet_path: Path | None = None
+        computed_perf = ctx.get("computed_perf_frame")
+        perf_cfg = self.month_config.get("performance_sheet", {})
+        if (
+            computed_perf is not None
+            and not computed_perf.empty
+            and perf_cfg.get("use_computed", True)
+        ):
+            perf_raw = self.month_config.get("outputs", {}).get(
+                "performance_sheet_file"
+            )
+            performance_sheet_path = resolve_project_path(
+                perf_raw or output_path.parent / "绩效整理表-系统生成.xlsx"
+            )
+            month = self.month_config.get("month") or perf_cfg.get(
+                "billing_month", ""
+            )
+            title = (
+                f"{month} 销售绩效整理表（系统生成）"
+                if month
+                else "系统生成-绩效整理表"
+            )
+            export_computed_performance_sheet(
+                computed_perf, performance_sheet_path, title=title
+            )
+
         return {
             "module_results": module_results,
             "summary": summary,
             "output_path": output_path,
-            "computed_perf_frame": ctx.get("computed_perf_frame"),
+            "computed_perf_frame": computed_perf,
+            "performance_sheet_path": performance_sheet_path,
         }

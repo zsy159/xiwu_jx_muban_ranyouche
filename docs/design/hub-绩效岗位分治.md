@@ -43,6 +43,20 @@
 
 试点岗位族（新媒体、DCC邀约专员、客户专员）已落地，见 `modules/new_media_performance.py`、`modules/invite_specialist_performance.py`、`modules/customer_specialist_performance.py`。
 
+## 金标准覆盖废除（2026-07）
+
+**原则：** 系统输出仅含计算值；金标准仅用于骨架/对账，**禁止**把金标准单元格复制进 `output/提成汇总.xlsx` 或发薪 SUMIF 源以掩盖差异。
+
+| 路径 | 变更 |
+|------|------|
+| `hub.bootstrap_from_golden` | 默认 `false`；`HubFormulaEngine._bootstrap_cell` / `_lazy_cell` 不回读金标准 |
+| `bootstrap_non_frontline_physical_columns` | 空操作 |
+| `build_hub_sumif_frame` | 仅 `output/提成汇总.xlsx`（按表头名映射到字母列）；无 computed 时数值列为空 |
+| `collect_topology_static_fill_cells` | 拓扑判定「需手工填入」；浅灰 `#D9D9D9` 标格，不回填数值 |
+| `xw_payout` | `--golden-hub` 已废弃；SUMIF 固定走 computed hub |
+
+手工格（如 **唐操** hub 行 94 的 W/X 在金标准为常数）在系统中由 overlay/公式计算或留空，与金标准差异在对账报告可见。
+
 ## 实施顺序
 
 1. 登记岗位族 → `hub_performance.yaml`（新媒体已登记 `module: new_media_performance`）

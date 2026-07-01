@@ -145,19 +145,97 @@ def read_payout_metric_frame(
     return _log_frame_shape(out.reset_index(drop=True), f"payout metrics {sheet_name}")
 
 
+def resolve_computed_payout_read_rows(
+    workbook_path: Path,
+    sheet_name: str,
+    *,
+    header_row: int = 3,
+    data_start_row: int = 4,
+    legend_insert_row: int = 2,
+) -> tuple[int, int]:
+    """Return header/data rows for computed payout, accounting for reconcile legend row."""
+    wb = load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        if sheet_name not in wb.sheetnames:
+            return header_row, data_start_row
+        ws = wb[sheet_name]
+        if _summary_sheet_header_present(ws, header_row):
+            return header_row, data_start_row
+        if (
+            _legend_row_present_in_sheet(ws, legend_insert_row)
+            and _summary_sheet_header_present(ws, header_row + 1)
+        ):
+            return header_row + 1, data_start_row + 1
+        return header_row, data_start_row
+    finally:
+        wb.close()
+
+
 def read_computed_payout_excel(
     workbook_path: Path,
     sheet_name: str,
+    *,
+    header_row: int = 3,
+    adjust_for_legend: bool = True,
 ) -> pd.DataFrame:
-    """Read pipeline-exported payout xlsx (header at row 3 / startrow=2)."""
+    """Read pipeline-exported payout xlsx (default header at Excel row 3)."""
+    data_start_row = header_row + 1
+    if adjust_for_legend:
+        header_row, data_start_row = resolve_computed_payout_read_rows(
+            workbook_path,
+            sheet_name,
+            header_row=header_row,
+            data_start_row=data_start_row,
+        )
     df = pd.read_excel(
         workbook_path,
         sheet_name=sheet_name,
-        header=2,
+        header=header_row - 1,
         engine="openpyxl",
     )
     df.columns = [normalize_header(c) for c in df.columns]
     return filter_comparable_rows(_clean_summary_frame(df))
+
+
+def _summary_sheet_header_present(worksheet: Any, row: int) -> bool:
+    for col in range(1, worksheet.max_column + 1):
+        if normalize_header(worksheet.cell(row=row, column=col).value) == "店别":
+            return True
+    return False
+
+
+def _legend_row_present_in_sheet(worksheet: Any, row: int) -> bool:
+    for col in range(1, worksheet.max_column + 1):
+        value = worksheet.cell(row=row, column=col).value
+        if isinstance(value, str) and "数值不一致" in value:
+            return True
+    return False
+
+
+def resolve_computed_summary_read_rows(
+    workbook_path: Path,
+    sheet_name: str,
+    *,
+    header_row: int = 2,
+    data_start_row: int = 3,
+    legend_insert_row: int = 2,
+) -> tuple[int, int]:
+    """Return header/data rows for computed 提成汇总, accounting for reconcile legend row."""
+    wb = load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        if sheet_name not in wb.sheetnames:
+            return header_row, data_start_row
+        ws = wb[sheet_name]
+        if _summary_sheet_header_present(ws, header_row):
+            return header_row, data_start_row
+        if (
+            _legend_row_present_in_sheet(ws, legend_insert_row)
+            and _summary_sheet_header_present(ws, header_row + 1)
+        ):
+            return header_row + 1, data_start_row + 1
+        return header_row, data_start_row
+    finally:
+        wb.close()
 
 
 def read_computed_summary_excel(
@@ -166,8 +244,16 @@ def read_computed_summary_excel(
     *,
     header_row: int = 2,
     data_start_row: int = 3,
+    adjust_for_legend: bool = True,
 ) -> pd.DataFrame:
     """Read pipeline-exported 提成汇总.xlsx (default header at row 2)."""
+    if adjust_for_legend:
+        header_row, data_start_row = resolve_computed_summary_read_rows(
+            workbook_path,
+            sheet_name,
+            header_row=header_row,
+            data_start_row=data_start_row,
+        )
     return read_golden_summary_sheet(
         workbook_path,
         sheet_name,
@@ -353,6 +439,9 @@ def build_workbook_loader(context: dict[str, Any]) -> WorkbookLoader:
             from salary_pipeline.ingestion_upload.sheet_merge import load_sheet_sources
 
             sheet_paths = load_sheet_sources(resolve_project_path(rel))
+    from salary_pipeline.ingestion_upload.sheet_merge import supplement_sheet_sources
+
+    sheet_paths = supplement_sheet_sources(sales_path, sheet_paths)
     return WorkbookLoader(sales_path, sheet_paths=sheet_paths)
 
 

@@ -73,7 +73,7 @@ class SalesAdvisorPerformanceModule(BaseCommissionModule):
         hub_cfg = month_config.get("hub", {})
         topology_path = resolve_project_path(month_config["topology"]["sales"])
         use_golden_perf = perf_cfg.get("use_golden_perf_sheet", True)
-        bootstrap_golden = hub_cfg.get("bootstrap_from_golden", True)
+        bootstrap_golden = hub_cfg.get("bootstrap_from_golden", False)
 
         rows: list[dict[str, Any]] = []
         for _, person in skeleton.iterrows():

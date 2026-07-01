@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 SHEET_SOURCES_FILENAME = "sheet_sources.json"
 
+# Formula sheets kept out of the merged workbook (openpyxl corrupts cached values).
+# Hub F/G/H still read them via supplemental upload paths.
+HUB_SUPPLEMENTAL_SHEETS: tuple[str, ...] = ("销售任务及完成率",)
+
 
 def _copy_sheet(source_ws, target_wb, sheet_name: str) -> None:
     if sheet_name in target_wb.sheetnames:
@@ -160,6 +164,37 @@ def load_sheet_sources(path: Path | None) -> dict[str, Path]:
         sheet: resolve_project_path(rel)
         for sheet, rel in raw.items()
     }
+
+
+def supplement_sheet_sources(
+    sales_workbook_path: Path,
+    sheet_sources: dict[str, Path] | None = None,
+) -> dict[str, Path]:
+    """Attach upload workbooks for hub formula sheets missing from the merged base."""
+    out = dict(sheet_sources or {})
+    base_path = Path(sales_workbook_path)
+    try:
+        base_sheets = set(scan_sheets(base_path))
+    except OSError:
+        return out
+
+    raw_dir = base_path.parent
+    for sheet_name in HUB_SUPPLEMENTAL_SHEETS:
+        if sheet_name in out or sheet_name in base_sheets:
+            continue
+        for candidate in (
+            raw_dir / "uploads" / f"{sheet_name}.xlsx",
+            raw_dir / ".staging" / "uploads" / f"{sheet_name}.xlsx",
+        ):
+            if candidate.is_file():
+                out[sheet_name] = candidate.resolve()
+                logger.info(
+                    "Supplemental sheet %s -> %s",
+                    sheet_name,
+                    candidate.name,
+                )
+                break
+    return out
 
 
 def build_consolidated_workbook(

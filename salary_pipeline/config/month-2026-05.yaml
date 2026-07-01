@@ -29,6 +29,8 @@ parity:
   - 职务
   - 姓名
   numeric_tolerance: 1.0e-06
+  auto_highlight: true
+  highlight_mode: mismatch_only
   columns:
   - 考核量
   - 实际销量

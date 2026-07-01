@@ -14,6 +14,7 @@ from salary_pipeline.calculators.sales_advisor.parity_annotations import (
 )
 from salary_pipeline.calculators.sales_advisor.registry import (
     build_reconcile_deferred_cells,
+    wa_parity_deferred_cells,
     wa_parity_deferred_reasons,
 )
 from salary_pipeline.calculators.sales_advisor.topology_specs import (
@@ -36,6 +37,13 @@ class HighlightStats:
     mismatches: int = 0
     deferred: int = 0
     annotated: int = 0
+
+
+def parity_highlight_mode(parity_cfg: dict[str, Any]) -> str:
+    """Return ``mismatch_only`` (fast amber fills) or ``full`` (deferred + annotations)."""
+    if parity_cfg.get("lightweight_highlight") or parity_cfg.get("skip_root_cause"):
+        return "mismatch_only"
+    return str(parity_cfg.get("highlight_mode", "mismatch_only"))
 
 
 def resolve_highlight_golden_path(month_config: dict[str, Any]) -> Path | None:
@@ -81,18 +89,24 @@ def apply_commission_summary_highlighting(
     if not compare_columns:
         return HighlightStats()
 
+    highlight_mode = parity_highlight_mode(parity_cfg)
+    lightweight = highlight_mode != "full"
+
     perf_raw = month_config["outputs"].get("performance_sheet_file")
     perf_path = (
         resolve_project_path(perf_raw)
         if perf_raw
         else computed_path.parent / "绩效整理表-系统生成.xlsx"
     )
-    deferred_for_highlight = build_reconcile_deferred_cells(
-        golden,
-        perf_path=perf_path,
-        header_row=header_row,
-        data_start_row=data_start_row,
-    )
+    if lightweight:
+        deferred_for_highlight = wa_parity_deferred_cells()
+    else:
+        deferred_for_highlight = build_reconcile_deferred_cells(
+            golden,
+            perf_path=perf_path,
+            header_row=header_row,
+            data_start_row=data_start_row,
+        )
 
     add_commission_summary_color_legend(computed_path, sheet, insert_at_row=2)
     highlight_header_row = header_row + 1
@@ -112,11 +126,12 @@ def apply_commission_summary_highlighting(
         golden_header_row=header_row,
         golden_data_start_row=data_start_row,
     )
-    mismatches = enrich_cell_mismatches(
-        mismatches,
-        golden_workbook=golden,
-        golden_data_start_row=data_start_row,
-    )
+    if not lightweight:
+        mismatches = enrich_cell_mismatches(
+            mismatches,
+            golden_workbook=golden,
+            golden_data_start_row=data_start_row,
+        )
     mismatch_count = highlight_commission_summary_mismatches(
         computed_path,
         sheet,
@@ -126,6 +141,15 @@ def apply_commission_summary_highlighting(
         header_row=highlight_header_row,
         data_start_row=highlight_data_start,
     )
+    if lightweight:
+        stats = HighlightStats(mismatches=mismatch_count)
+        logger.info(
+            "Commission summary highlighting (mismatch_only) -> %s (mismatches=%s)",
+            computed_path,
+            stats.mismatches,
+        )
+        return stats
+
     static_cells = collect_topology_static_fill_cells(
         golden_workbook_path=golden,
         header_row=header_row,

@@ -2,7 +2,7 @@
   "meta": {
     "source_topology": "燃油车-2026年05月西物超市销售提成(终)(1).xlsx",
     "anchor_sheet": "提成汇总",
-    "generated_at": "2026-06-29T09:08:14.869951+00:00",
+    "generated_at": "2026-07-01T02:49:36.510232+00:00",
     "workbook_sheet_count": 76
   },
   "counts": {
@@ -317,13 +317,13 @@
       "to": "按揭原表",
       "ref_count": 1956,
       "from_role": "input",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "综合表",
       "to": "转介绍（已发现金）",
       "ref_count": 1780,
-      "from_role": "unregistered",
+      "from_role": "input",
       "to_role": "unregistered"
     },
     {
@@ -338,7 +338,7 @@
       "to": "按揭原表",
       "ref_count": 1758,
       "from_role": "formula",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "绩效整理表",
@@ -372,7 +372,7 @@
       "from": "指标汇总",
       "to": "绩效整理表",
       "ref_count": 1192,
-      "from_role": "unregistered",
+      "from_role": "input",
       "to_role": "formula"
     },
     {
@@ -471,7 +471,7 @@
       "to": "综合表",
       "ref_count": 734,
       "from_role": "hub",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "提成汇总",
@@ -568,7 +568,7 @@
       "from": "综合表",
       "to": "试用期员工薪酬",
       "ref_count": 445,
-      "from_role": "unregistered",
+      "from_role": "input",
       "to_role": "unregistered"
     },
     {
@@ -582,7 +582,7 @@
       "from": "按揭原表",
       "to": "按揭明细",
       "ref_count": 436,
-      "from_role": "unregistered",
+      "from_role": "input",
       "to_role": "input"
     },
     {
@@ -611,13 +611,13 @@
       "to": "保客考核明细",
       "ref_count": 386,
       "from_role": "hub",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "综合表",
       "to": "车展补贴",
       "ref_count": 360,
-      "from_role": "unregistered",
+      "from_role": "input",
       "to_role": "unregistered"
     },
     {
@@ -625,7 +625,7 @@
       "to": "综合表",
       "ref_count": 346,
       "from_role": "unregistered",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "直营店提成-发",
@@ -639,7 +639,7 @@
       "to": "直营店交车",
       "ref_count": 244,
       "from_role": "hub",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "直营店提成-发",
@@ -652,7 +652,7 @@
       "from": "综合表",
       "to": "提成汇总",
       "ref_count": 229,
-      "from_role": "unregistered",
+      "from_role": "input",
       "to_role": "hub"
     },
     {
@@ -835,7 +835,7 @@
       "to": "综合表",
       "ref_count": 18,
       "from_role": "output",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "XW提成-翼真发",
@@ -849,7 +849,7 @@
       "to": "指标汇总",
       "ref_count": 17,
       "from_role": "hub",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "直营店提成-发",
@@ -870,7 +870,7 @@
       "to": "翼真考核",
       "ref_count": 12,
       "from_role": "hub",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "直营店经理提成 (财务)",
@@ -898,14 +898,14 @@
       "to": "综合表",
       "ref_count": 10,
       "from_role": "output",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "试用期员工薪酬",
       "to": "综合表",
       "ref_count": 10,
       "from_role": "unregistered",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "提成汇总",
@@ -989,7 +989,7 @@
       "to": "综合表",
       "ref_count": 2,
       "from_role": "output",
-      "to_role": "unregistered"
+      "to_role": "input"
     },
     {
       "from": "XW提成-发",
@@ -39714,8 +39714,8 @@
     "客户部提成": "unregistered",
     "延保提成": "unregistered",
     "招聘": "unregistered",
-    "指标汇总": "unregistered",
-    "按揭原表": "unregistered",
+    "指标汇总": "input",
+    "按揭原表": "input",
     "按揭明细": "input",
     "按揭绩效": "unregistered",
     "提成标准": "unregistered",
@@ -39730,9 +39730,9 @@
     "直营店经理提成 (财务)": "unregistered",
     "系统销售毛利": "input",
     "绩效整理表": "formula",
-    "综合表": "unregistered",
+    "综合表": "input",
     "置换服务": "unregistered",
-    "翼真考核": "unregistered",
+    "翼真考核": "input",
     "装饰台账": "input",
     "试用期员工薪酬": "unregistered",
     "超市公积金": "unregistered",
@@ -39753,15 +39753,12 @@
     "上户提成",
     "二手置换 ",
     "产品经理提成核算",
-    "保客考核明细",
     "公积金拷贝-超市",
     "大客户",
     "客户部提成",
     "工厂购进",
     "延保提成",
     "招聘",
-    "指标汇总",
-    "按揭原表",
     "按揭绩效",
     "提成标准",
     "新保",
@@ -39769,14 +39766,11 @@
     "服装扣款明细",
     "比对表",
     "爱车保",
-    "直营店交车",
     "直营店基本",
     "直营店经理提成 (财务)",
     "系统二手车降价",
     "系统超额",
-    "综合表",
     "置换服务",
-    "翼真考核",
     "西物基本",
     "西物翼真",
     "试用期员工薪酬",

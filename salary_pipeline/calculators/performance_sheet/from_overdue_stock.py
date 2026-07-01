@@ -76,6 +76,7 @@ def compute_overdue_stock_columns(
     *,
     target_cols: tuple[str, ...] = OVERDUE_STOCK_COLUMNS,
     topology_path: Path | None = None,
+    policy_workbook_path: Path | None = None,
     inventory_days: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Recompute E / AU for Hub ``SUMIF(..., AU)`` → 提成汇总「超期」."""
@@ -102,6 +103,9 @@ def compute_overdue_stock_columns(
             policy_by_vin = load_au_policy_by_vin(
                 str(loader.workbook_path),
                 str(topology_path),
+                policy_workbook_path=(
+                    str(policy_workbook_path) if policy_workbook_path else None
+                ),
             )
             bonuses: list[float] = []
             for vin, inv_days in zip(skeleton["O"], days, strict=True):

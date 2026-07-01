@@ -1,7 +1,8 @@
-"""Build 提成汇总 column frames for payout SUMIF (computed + golden merge)."""
+"""Build 提成汇总 column frames for payout SUMIF (computed hub only)."""
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -10,8 +11,29 @@ from openpyxl import load_workbook
 from salary_pipeline.data_ingestion.data_loader import (
     _column_sort_key,
     _log_frame_shape,
+    normalize_header,
     normalize_name,
 )
+from salary_pipeline.pipelines.hub_formula_engine import HUB_COLUMN_MAP
+
+logger = logging.getLogger(__name__)
+
+# Excel letter → 提成汇总 header (golden layout); used to read computed hub by name.
+PAYOUT_LETTER_TO_HEADER: dict[str, str] = {
+    "D": "姓名",
+    **HUB_COLUMN_MAP,
+    "AK": "整车完成考核",
+    "AL": "加装完成考核",
+    "AM": "综合项",
+    "AN": "04月活动",
+    "AO": "超期",
+    "AP": "（已发放奖励）",
+    "AQ": "交车支出",
+    "AR": "保客考核",
+    "AT": "提成合计",
+    "AX": "计提单台",
+    "AY": "计提金额",
+}
 
 # Columns XW提成-发 pulls from 提成汇总 via SUMIF
 PAYOUT_HUB_LETTERS = [
@@ -44,21 +66,6 @@ PAYOUT_HUB_LETTERS = [
     "AY",
 ]
 
-# Only F–P are pipeline-computed at hub parity; W–AR stay golden until W–AI engine closes.
-COMPUTED_HUB_OVERRIDE_LETTERS = [
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-]
-
 
 def _col_to_index(letter: str) -> int:
     n = 0
@@ -82,12 +89,33 @@ def _letters_within_bounds(
     return [letter for letter in letters if _col_to_index(letter) + 1 <= max_col]
 
 
+def detect_hub_data_start_row(
+    workbook_path: Path,
+    sheet_name: str = "提成汇总",
+    *,
+    default: int = 3,
+) -> int:
+    """Return first data row by locating the 姓名 header (handles legend row offset)."""
+    wb = load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        if sheet_name not in wb.sheetnames:
+            return default
+        ws = wb[sheet_name]
+        for row_idx in range(1, min(ws.max_row, 12) + 1):
+            for col_idx in range(1, min(ws.max_column, 20) + 1):
+                if normalize_header(ws.cell(row=row_idx, column=col_idx).value) == "姓名":
+                    return row_idx + 1
+    finally:
+        wb.close()
+    return default
+
+
 def read_hub_columns_by_letter(
     workbook_path: Path,
     sheet_name: str = "提成汇总",
     letters: list[str] | None = None,
     *,
-    data_start_row: int = 3,
+    data_start_row: int | None = None,
 ) -> pd.DataFrame:
     """Load hub metrics by Excel column letter (values, not formulas)."""
     letters = letters or PAYOUT_HUB_LETTERS
@@ -95,13 +123,18 @@ def read_hub_columns_by_letter(
     if not available:
         return pd.DataFrame()
 
+    start_row = (
+        data_start_row
+        if data_start_row is not None
+        else detect_hub_data_start_row(workbook_path, sheet_name)
+    )
     usecols = ",".join(sorted(set(available), key=_column_sort_key))
     raw = pd.read_excel(
         workbook_path,
         sheet_name=sheet_name,
         usecols=usecols,
         header=None,
-        skiprows=data_start_row - 1,
+        skiprows=start_row - 1,
         engine="openpyxl",
     )
     letter_order = sorted(set(available), key=_column_sort_key)
@@ -117,23 +150,67 @@ def read_hub_columns_by_letter(
     return _log_frame_shape(out, f"hub columns {workbook_path.name}!{sheet_name}")
 
 
-def _merge_hub_by_name_key(base: pd.DataFrame, override: pd.DataFrame) -> pd.DataFrame:
-    """Override hub metric columns by 姓名 (column D), not row index."""
-    if override.empty or "D" not in override.columns:
-        return base
-    out = base.copy()
-    keyed = override.copy()
-    keyed["_dkey"] = keyed["D"].map(normalize_name)
-    lookup = keyed.drop_duplicates("_dkey", keep="last").set_index("_dkey")
-    dkeys = out["D"].map(normalize_name)
-    for col in override.columns:
-        if col == "D" or col not in lookup.columns:
-            continue
-        mapped = dkeys.map(lookup[col])
-        mask = mapped.notna()
-        if mask.any():
-            out.loc[mask, col] = mapped[mask]
-    return out
+def read_hub_columns_mapped(
+    workbook_path: Path,
+    sheet_name: str = "提成汇总",
+    letters: list[str] | None = None,
+    *,
+    data_start_row: int | None = None,
+) -> pd.DataFrame:
+    """Load hub metrics by header name, output keyed by Excel letter for SUMIF."""
+    letters = letters or PAYOUT_HUB_LETTERS
+    start_row = (
+        data_start_row
+        if data_start_row is not None
+        else detect_hub_data_start_row(workbook_path, sheet_name)
+    )
+    header_row = start_row - 1
+    raw = pd.read_excel(
+        workbook_path,
+        sheet_name=sheet_name,
+        header=header_row - 1,
+        engine="openpyxl",
+    )
+    col_by_header = {
+        normalize_header(col): col for col in raw.columns if normalize_header(col)
+    }
+    out = pd.DataFrame()
+    for letter in letters:
+        header = normalize_header(PAYOUT_LETTER_TO_HEADER.get(letter, ""))
+        src = col_by_header.get(header) if header else None
+        if src is None:
+            out[letter] = pd.NA
+        else:
+            out[letter] = raw[src].values
+    if "D" in out.columns:
+        out["D"] = out["D"].map(normalize_name)
+    for letter in letters:
+        if letter != "D":
+            out[letter] = pd.to_numeric(out[letter], errors="coerce")
+    return _log_frame_shape(
+        out, f"hub columns (mapped) {workbook_path.name}!{sheet_name}"
+    )
+
+
+def _empty_hub_frame(
+    golden_workbook: Path,
+    *,
+    sheet_name: str = "提成汇总",
+    letters: list[str] | None = None,
+    data_start_row: int = 3,
+) -> pd.DataFrame:
+    """Name column only — numeric SUMIF source columns left empty."""
+    letters = letters or PAYOUT_HUB_LETTERS
+    frame = read_hub_columns_by_letter(
+        golden_workbook,
+        sheet_name,
+        ["D"],
+        data_start_row=data_start_row,
+    )
+    for letter in letters:
+        if letter != "D":
+            frame[letter] = pd.NA
+    return frame
 
 
 def build_hub_sumif_frame(
@@ -145,25 +222,29 @@ def build_hub_sumif_frame(
     data_start_row: int = 3,
 ) -> pd.DataFrame:
     """
-    Merge hub columns for payout SUMIF.
+    Load hub columns for payout SUMIF from computed 提成汇总 only.
 
-    - Base layer: golden workbook (full W–AR block)
-    - Override: computed 提成汇总.xlsx where columns exist (typically F–P)
+  ``golden_workbook`` is retained for API compatibility and is used only to
+  supply the D-column name skeleton when the computed hub file is missing.
+  Golden W–AR values are never merged into the SUMIF source frame.
     """
     letters = letters or PAYOUT_HUB_LETTERS
-    frame = read_hub_columns_by_letter(
-        golden_workbook,
-        sheet_name,
-        letters,
-        data_start_row=data_start_row,
-    )
-    if computed_workbook is None or not computed_workbook.exists():
-        return frame
+    if computed_workbook is not None and computed_workbook.exists():
+        return read_hub_columns_mapped(
+            computed_workbook,
+            sheet_name,
+            letters,
+        )
 
-    computed = read_hub_columns_by_letter(
+    logger.warning(
+        "Computed hub %s missing; payout SUMIF numeric columns will be empty "
+        "(D-column skeleton from %s)",
         computed_workbook,
-        sheet_name,
-        ["D", *COMPUTED_HUB_OVERRIDE_LETTERS],
+        golden_workbook.name,
+    )
+    return _empty_hub_frame(
+        golden_workbook,
+        sheet_name=sheet_name,
+        letters=letters,
         data_start_row=data_start_row,
     )
-    return _merge_hub_by_name_key(frame, computed)

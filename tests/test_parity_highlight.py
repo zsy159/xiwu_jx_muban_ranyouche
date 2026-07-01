@@ -10,12 +10,16 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from salary_pipeline.pipelines.commission_summary import CommissionSummaryBuilder
-from salary_pipeline.data_ingestion.data_loader import normalize_header
+from salary_pipeline.data_ingestion.data_loader import (
+    normalize_header,
+    read_computed_summary_excel,
+)
 from salary_pipeline.calculators.sales_advisor.registry import wa_parity_deferred_cells
 from salary_pipeline.calculators.sales_advisor.topology_specs import (
     collect_topology_manual_formula_cells,
     collect_topology_static_fill_cells,
     is_manual_formula_adjustment,
+    is_pure_direct_fill_formula,
 )
 from salary_pipeline.utils.excel_format import (
     FORMULA_ANOMALY_FILL_RGB,
@@ -34,15 +38,27 @@ from salary_pipeline.validation.parity import CellMismatch, CommissionSummaryPar
 
 
 class ManualFormulaDetectionTests(unittest.TestCase):
+    def test_is_pure_direct_fill_formula(self) -> None:
+        self.assertTrue(is_pure_direct_fill_formula("=-140"))
+        self.assertTrue(is_pure_direct_fill_formula("=100"))
+        self.assertTrue(is_pure_direct_fill_formula("=189*20"))
+        self.assertTrue(is_pure_direct_fill_formula("=100*0.8"))
+        self.assertTrue(is_pure_direct_fill_formula("=500+300"))
+        self.assertTrue(is_pure_direct_fill_formula("=462+101+77+102"))
+        self.assertFalse(is_pure_direct_fill_formula("=SUMIFS(AJ:AJ,D:D,D3)-100"))
+        self.assertFalse(is_pure_direct_fill_formula("=W80*0.8"))
+        self.assertFalse(is_pure_direct_fill_formula("100"))
+
     def test_is_manual_formula_adjustment(self) -> None:
-        self.assertTrue(is_manual_formula_adjustment("=-140"))
-        self.assertTrue(is_manual_formula_adjustment("=100"))
+        self.assertFalse(is_manual_formula_adjustment("=-140"))
+        self.assertFalse(is_manual_formula_adjustment("=100"))
         self.assertTrue(is_manual_formula_adjustment("=SUMIFS(AJ:AJ,D:D,D3)-100"))
         self.assertTrue(is_manual_formula_adjustment("=AH80-100"))
         self.assertTrue(is_manual_formula_adjustment("=SUMIFS(AJ:AJ,D:D,D3)+600"))
-        self.assertTrue(is_manual_formula_adjustment("=189*20"))
-        self.assertTrue(is_manual_formula_adjustment("=100*0.8"))
-        self.assertTrue(is_manual_formula_adjustment("=500+300"))
+        self.assertFalse(is_manual_formula_adjustment("=189*20"))
+        self.assertFalse(is_manual_formula_adjustment("=100*0.8"))
+        self.assertFalse(is_manual_formula_adjustment("=500+300"))
+        self.assertFalse(is_manual_formula_adjustment("=462+101+77+102"))
         self.assertFalse(is_manual_formula_adjustment("=SUMIFS(AJ:AJ,D:D,D3)"))
         self.assertFalse(is_manual_formula_adjustment("100"))
         self.assertFalse(is_manual_formula_adjustment("=W80*0.8"))
@@ -84,10 +100,13 @@ class ManualFormulaDetectionTests(unittest.TestCase):
 
             wb = load_workbook(golden_path)
             ws = wb["提成汇总"]
-            ws["X3"] = "=-140"
-            ws["Z3"] = "=SUMIFS(AJ:AJ,D:D,D3)+600"
-            ws["X4"] = "=189*20"
-            ws["W4"] = "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)"
+            x_col = columns.index("权限结余绩效") + 1
+            z_col = columns.index("保险绩效") + 1
+            w_col = columns.index("整车绩效") + 1
+            ws.cell(row=3, column=x_col, value="=-140")
+            ws.cell(row=3, column=z_col, value="=SUMIFS(AJ:AJ,D:D,D3)+600")
+            ws.cell(row=4, column=x_col, value="=189*20")
+            ws.cell(row=4, column=w_col, value="=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)")
             wb.save(golden_path)
             wb.close()
 
@@ -102,9 +121,11 @@ class ManualFormulaDetectionTests(unittest.TestCase):
                 golden_workbook_path=golden_path,
             )
             self.assertIn(("沈燕1", "销售顾问"), manual_cells)
-            self.assertIn("权限结余绩效", manual_cells[("沈燕1", "销售顾问")])
+            self.assertNotIn(
+                "权限结余绩效", manual_cells[("沈燕1", "销售顾问")]
+            )
             self.assertIn("保险绩效", manual_cells[("沈燕1", "销售顾问")])
-            self.assertIn("权限结余绩效", manual_cells[("韩柏成", "销售顾问")])
+            self.assertNotIn(("韩柏成", "销售顾问"), manual_cells)
             self.assertNotIn("整车绩效", manual_cells.get(("韩柏成", "销售顾问"), frozenset()))
 
     def test_highlight_manual_formula_cells_blue_with_comment(self) -> None:
@@ -408,6 +429,156 @@ class ParityHighlightTests(unittest.TestCase):
             self.assertIn(("韩柏成", "销售顾问"), static_cells)
             self.assertIn("加装绩效", static_cells[("韩柏成", "销售顾问")])
             self.assertNotIn("整车绩效", static_cells[("韩柏成", "销售顾问")])
+
+    def test_collect_static_includes_pure_arith_and_non_frontline_columns(self) -> None:
+        columns = [
+            "店别",
+            "职务",
+            "姓名",
+            "综合毛利",
+            "主营单台毛利",
+            "整车绩效",
+            "权限结余绩效",
+        ]
+        df = pd.DataFrame(
+            [
+                {
+                    "店别": "财务部",
+                    "职务": "会计",
+                    "姓名": "罗敏",
+                    "综合毛利": 742,
+                    "主营单台毛利": 2.0,
+                    "整车绩效": 5000,
+                    "权限结余绩效": 100,
+                },
+            ]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        with tempfile.TemporaryDirectory() as tmp:
+            golden_path = Path(tmp) / "golden.xlsx"
+            topo_path = Path(tmp) / "topo.json"
+            builder.export_excel(df, golden_path)
+
+            wb = load_workbook(golden_path)
+            ws = wb["提成汇总"]
+            t_col = columns.index("综合毛利") + 1
+            ws.cell(row=3, column=t_col, value="=462+101+77+102")
+            wb.save(golden_path)
+            wb.close()
+
+            topo_path.write_text('{"cells": {}}', encoding="utf-8")
+            static_cells = collect_topology_static_fill_cells(
+                topology_path=topo_path,
+                golden_workbook_path=golden_path,
+            )
+            key = ("罗敏", "会计")
+            self.assertIn(key, static_cells)
+            self.assertIn("综合毛利", static_cells[key])
+            self.assertIn("主营单台毛利", static_cells[key])
+
+            manual_cells = collect_topology_manual_formula_cells(
+                topology_path=topo_path,
+                golden_workbook_path=golden_path,
+            )
+            self.assertNotIn("综合毛利", manual_cells.get(key, frozenset()))
+            self.assertNotIn("主营单台毛利", manual_cells.get(key, frozenset()))
+
+    def test_pure_arith_static_gray_not_blue_on_highlight(self) -> None:
+        columns = [
+            "店别",
+            "职务",
+            "姓名",
+            "综合毛利",
+            "台次",
+            "主营单台毛利",
+            "提成系数",
+        ]
+        df = pd.DataFrame(
+            [
+                {
+                    "店别": "财务部",
+                    "职务": "会计",
+                    "姓名": "罗敏",
+                    "综合毛利": pd.NA,
+                    "台次": 742.0,
+                    "主营单台毛利": pd.NA,
+                    "提成系数": 2.0,
+                },
+            ]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        static_cells = {
+            ("罗敏", "会计"): frozenset({"综合毛利", "主营单台毛利"}),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(df, path)
+
+            highlighted = highlight_commission_summary_deferred_cells(
+                path,
+                "提成汇总",
+                {},
+                static_cells=static_cells,
+            )
+            self.assertEqual(highlighted, 2)
+
+            wb = load_workbook(path)
+            ws = wb["提成汇总"]
+            taici_col = columns.index("台次") + 1
+            coef_col = columns.index("提成系数") + 1
+            self.assertEqual(
+                ws.cell(row=3, column=taici_col).fill.start_color.rgb,
+                GOLDEN_STATIC_FILL_RGB,
+            )
+            self.assertEqual(
+                ws.cell(row=3, column=coef_col).fill.start_color.rgb,
+                GOLDEN_STATIC_FILL_RGB,
+            )
+            self.assertEqual(
+                ws.cell(row=3, column=taici_col).comment.text,
+                STATIC_FILL_COMMENT,
+            )
+
+    def test_sumifs_formula_not_marked_static(self) -> None:
+        columns = ["店别", "职务", "姓名", "整车绩效"]
+        df = pd.DataFrame(
+            [
+                {
+                    "店别": "西物",
+                    "职务": "销售顾问",
+                    "姓名": "张三",
+                    "整车绩效": 100.0,
+                },
+            ]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        with tempfile.TemporaryDirectory() as tmp:
+            golden_path = Path(tmp) / "golden.xlsx"
+            topo_path = Path(tmp) / "topo.json"
+            builder.export_excel(df, golden_path)
+
+            wb = load_workbook(golden_path)
+            ws = wb["提成汇总"]
+            w_col = columns.index("整车绩效") + 1
+            ws.cell(
+                row=3,
+                column=w_col,
+                value="=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D3)",
+            )
+            wb.save(golden_path)
+            wb.close()
+
+            topo_path.write_text(
+                '{"cells": {'
+                '"提成汇总!W3": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D3)"}'
+                "}}",
+                encoding="utf-8",
+            )
+            static_cells = collect_topology_static_fill_cells(
+                topology_path=topo_path,
+                golden_workbook_path=golden_path,
+            )
+            self.assertNotIn("整车绩效", static_cells.get(("张三", "销售顾问"), frozenset()))
 
     def test_highlight_static_cells_gray_fill_and_comment(self) -> None:
         columns = [
@@ -838,7 +1009,7 @@ class ColorLegendTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             self.assertEqual(ws.cell(row=2, column=1).fill.start_color.rgb, GOLDEN_STATIC_FILL_RGB)
-            self.assertIn("金标准直接填数", ws.cell(row=2, column=2).value)
+            self.assertIn("需要手工填入", ws.cell(row=2, column=2).value)
             self.assertEqual(
                 ws.cell(row=2, column=3).fill.start_color.rgb, MANUAL_DEFERRED_FILL_RGB
             )
@@ -852,6 +1023,35 @@ class ColorLegendTests(unittest.TestCase):
             )
             self.assertIn("公式形态异常", ws.cell(row=2, column=8).value)
             self.assertEqual(normalize_header(ws.cell(row=3, column=1).value), "店别")
+
+
+class ReconcileAfterLegendTests(unittest.TestCase):
+    def test_compare_files_after_legend_insert(self) -> None:
+        columns = ["店别", "职务", "姓名", "整车绩效"]
+        df = pd.DataFrame(
+            [{"店别": "西物", "职务": "销售顾问", "姓名": "张三", "整车绩效": 100.0}]
+        )
+        builder = CommissionSummaryBuilder(template_columns=columns)
+        with tempfile.TemporaryDirectory() as tmp:
+            computed = Path(tmp) / "computed.xlsx"
+            golden = Path(tmp) / "golden.xlsx"
+            builder.export_excel(df, computed)
+            builder.export_excel(df, golden)
+            add_commission_summary_color_legend(computed, "提成汇总", insert_at_row=2)
+
+            computed_df = read_computed_summary_excel(computed)
+            self.assertIn("店别", computed_df.columns)
+            self.assertEqual(len(computed_df), 1)
+
+            checker = CommissionSummaryParity(columns=["整车绩效"])
+            report = checker.compare_files(
+                computed,
+                golden,
+                "提成汇总",
+                header_row=2,
+                data_start_row=3,
+            )
+            self.assertTrue(report.overall_passed)
 
 
 if __name__ == "__main__":
