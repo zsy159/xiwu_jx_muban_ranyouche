@@ -301,6 +301,67 @@ class TestHubFormulaEngine(unittest.TestCase):
                 self.assertIsNotNone(val)
                 self.assertAlmostEqual(float(val), expected, places=2)
 
+    def test_store_advisor_w_uses_task_sheet_combined_completion(self) -> None:
+        """门店块销售顾问：W = SUMIFS(AG) × 销售任务及完成率!AG（合并完成率）。"""
+        from salary_pipeline.main import _resolve_month_config
+        from salary_pipeline.pipelines.run_cache import load_hub_snapshot
+
+        try:
+            config = _resolve_month_config("2026-05")
+        except SystemExit:
+            self.skipTest("2026-05 not registered; run onboard-month first")
+        cache_dir = resolve_project_path(config["outputs"]["cache_dir"])
+        if not cache_dir.exists():
+            self.skipTest("2026-05 hub cache missing; run compute-all first")
+        _, perf = load_hub_snapshot(cache_dir)
+        loader = WorkbookLoader(resolve_project_path(config["workbooks"]["sales"]))
+        topo = resolve_project_path(config["topology"]["sales"])
+        engine = HubFormulaEngine(
+            topo,
+            loader,
+            computed_perf_frame=perf,
+            use_golden_perf_sheet=False,
+            bootstrap_from_golden=False,
+        )
+        cases = [
+            (5, "赵思梵", 2566.66666666667),
+            (50, "丁小玲", 2280.0),
+        ]
+        for row, name, expected in cases:
+            with self.subTest(name=name):
+                summary = pd.DataFrame(
+                    [
+                        {
+                            "店别": "崇州直营店",
+                            "职务": "销售顾问",
+                            "姓名": name,
+                            "_excel_row": row,
+                        }
+                    ]
+                )
+                out = engine.apply(summary)
+                self.assertAlmostEqual(
+                    float(out.loc[0, "整车绩效"]), expected, places=2
+                )
+
+    def test_lookup_combined_completion_rate_from_uploads(self) -> None:
+        from salary_pipeline.data_ingestion.data_loader import (
+            lookup_combined_completion_rate,
+        )
+        from salary_pipeline.main import _resolve_month_config
+
+        try:
+            config = _resolve_month_config("2026-05")
+        except SystemExit:
+            self.skipTest("2026-05 not registered; run onboard-month first")
+        golden = resolve_project_path(config["workbooks"]["sales"])
+        if not golden.is_file():
+            self.skipTest("2026-05 workbook missing")
+        loader = WorkbookLoader(golden)
+        rate = lookup_combined_completion_rate(loader, "赵思梵")
+        self.assertIsNotNone(rate)
+        self.assertAlmostEqual(float(rate), 1.16666666666667, places=4)
+
 
 if __name__ == "__main__":
     unittest.main()

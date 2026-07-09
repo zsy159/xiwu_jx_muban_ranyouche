@@ -1,0 +1,48 @@
+# Hub F–P 试点瘦身规则（可选，默认生产路径不加载）
+#
+# 范围：原 hub_metrics_rules.yaml 中「集客达成率」→「综合单台毛利」段落的
+# 可安全省略列（见 docs/iterations/hub/Hub列瘦身试点-集客至综合单台.md）。
+#
+# 启用方式（未来 opt-in，当前未接入 month.yaml）：
+#   将 HubMetricsRuleEngine(config=load_hub_metrics_rules(pilot_slim_path)) 传入
+#   或 month.yaml 增加 hub_metrics_rules: hub_metrics_rules.pilot_slim.yaml
+#
+# 保留：
+#   - F/G/H（任务与完成率）— 销售顾问 W/Y/Z 乘数
+#   - I（集客达成率）— 发薪 AC「集客考核」SUMIF Hub I
+
+columns:
+  - hub_column: 考核量
+    op: sumif
+    source_sheet: 销售任务及完成率
+    key_col: 姓名
+    value_col: 考核量
+    match_by: 姓名
+
+  - hub_column: 实际销量
+    op: sumif
+    source_sheet: 销售任务及完成率
+    key_col: 姓名
+    value_col: 实际销量
+    match_by: 姓名
+
+  - hub_column: 销量完成率
+    op: ratio_with_cap_group
+    numerator: 实际销量
+    denominator: 考核量
+    group_by: 店别
+    default_cap: 1.2
+    cap_overrides:
+      - cap: 1.1
+        店别:
+          - 直营店管理
+          - 新媒体销售部
+          - 西物-翼真
+          - 销售管理部
+
+  - hub_column: 集客达成率
+    op: lookup_first
+    source_sheet: 销售任务及完成率
+    key_col: 姓名
+    value_col: 集客达成率
+    match_by: 姓名

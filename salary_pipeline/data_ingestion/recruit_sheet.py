@@ -44,6 +44,8 @@ def _num(value: Any) -> float | None:
 
 
 def load_recruit_frame(loader: WorkbookLoader) -> pd.DataFrame:
+    if not loader.has_sheet(RECRUIT_SHEET):
+        return pd.DataFrame(columns=[NAME_COL, AMOUNT_COL])
     frame = loader.read_sheet_columns(
         RECRUIT_SHEET,
         {NAME_COL: NAME_COL, AMOUNT_COL: AMOUNT_COL},
@@ -59,6 +61,8 @@ def load_team_allocation_frame(loader: WorkbookLoader) -> pd.DataFrame:
     cfg = get_team_block_config()
     cols = cfg["cols"]
     sheet = cfg["sheet"]
+    if not loader.has_sheet(sheet):
+        return pd.DataFrame(columns=list(cols.keys()))
     frame = loader.read_sheet_columns(
         sheet,
         cols,

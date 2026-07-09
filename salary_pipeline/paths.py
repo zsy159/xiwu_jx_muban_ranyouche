@@ -33,4 +33,7 @@ def resolve_project_path(relative: str | Path) -> Path:
     path = Path(relative)
     if path.is_absolute():
         return path
+    rel_text = str(relative).strip()
+    if not rel_text:
+        raise ValueError("Empty project-relative path")
     return PROJECT_ROOT / path

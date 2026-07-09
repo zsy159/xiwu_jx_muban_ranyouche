@@ -16,6 +16,7 @@ from salary_pipeline.calculators.recruit.registry import (
 from salary_pipeline.config.hub_performance_loader import load_hub_performance_config
 from salary_pipeline.config.hub_performance_match import row_matches_family
 from salary_pipeline.data_ingestion.data_loader import build_workbook_loader
+from salary_pipeline.data_ingestion.recruit_sheet import RECRUIT_SHEET
 from salary_pipeline.modules.base import (
     SUMMARY_KEY_COLUMNS,
     BaseCommissionModule,
@@ -57,6 +58,14 @@ class RecruitPerformanceModule(BaseCommissionModule):
             )
 
         loader = build_workbook_loader(context)
+        sheet = str(family.get("source", {}).get("sheet", RECRUIT_SHEET))
+        sheet_available = loader.has_sheet(sheet)
+        if not sheet_available:
+            logger.warning(
+                "%s: sheet %r missing; overlay leaves recruit columns empty",
+                self.name,
+                sheet,
+            )
 
         rows: list[dict[str, Any]] = []
         for _, person in skeleton.iterrows():
@@ -68,7 +77,7 @@ class RecruitPerformanceModule(BaseCommissionModule):
                 continue
 
             hub_col = hub_column_for_role(role)
-            perf = lookup_role_performance(loader, name)
+            perf = lookup_role_performance(loader, name) if sheet_available else 0.0
             rows.append(
                 {
                     "店别": person["店别"],
@@ -102,7 +111,8 @@ class RecruitPerformanceModule(BaseCommissionModule):
                 "rules_sheet": family.get("rules_sheet"),
                 "algorithm": "team_allocation",
                 "formula": "onboard_count * commission_per_hire * allocation_ratio",
-                "source_sheet": "招聘",
+                "source_sheet": sheet,
+                "sheet_available": sheet_available,
                 "rows": len(metrics),
                 "hub_linked_only": True,
             },

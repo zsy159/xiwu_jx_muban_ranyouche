@@ -8,6 +8,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 
@@ -63,12 +65,48 @@ SUMIF_CHAIN = re.compile(
 _HUB_NAME_BY_LETTER = {letter: name for letter, name in HUB_COLUMN_MAP.items()}
 
 
-@lru_cache(maxsize=1)
-def _topology_cells() -> dict[str, dict[str, Any]]:
+def _resolve_default_topology_path() -> Path:
+    """Resolve sales topology JSON from month.yaml, falling back to month-YYYY-MM.yaml."""
     config = load_month_config(CONFIG_DIR)
-    topo_path = resolve_project_path(config["topology"]["sales"])
-    topo = json.loads(topo_path.read_text(encoding="utf-8"))
+    rel = (config.get("topology") or {}).get("sales", "")
+    if not str(rel).strip():
+        month = config.get("month", "")
+        if month:
+            month_cfg_path = CONFIG_DIR / f"month-{month}.yaml"
+            if month_cfg_path.is_file():
+                with month_cfg_path.open(encoding="utf-8") as handle:
+                    month_cfg = yaml.safe_load(handle)
+                rel = (month_cfg.get("topology") or {}).get("sales", "")
+    if not str(rel).strip():
+        raise ValueError(
+            "topology.sales is not configured; set it in month.yaml or month-YYYY-MM.yaml"
+        )
+    path = resolve_project_path(rel)
+    if path.is_dir():
+        raise IsADirectoryError(f"topology.sales points to a directory, not a file: {path}")
+    if not path.is_file():
+        raise FileNotFoundError(f"Topology file not found: {path}")
+    return path
+
+
+@lru_cache(maxsize=4)
+def _topology_cells_for_path(resolved_path: str) -> dict[str, dict[str, Any]]:
+    topo = json.loads(Path(resolved_path).read_text(encoding="utf-8"))
     return topo.get("cells", {})
+
+
+def _topology_cells() -> dict[str, dict[str, Any]]:
+    path = _resolve_default_topology_path()
+    return _topology_cells_for_path(str(path.resolve()))
+
+
+def _assert_topology_file(path: Path) -> Path:
+    resolved = Path(path)
+    if resolved.is_dir():
+        raise IsADirectoryError(f"Topology path is a directory, not a file: {resolved}")
+    if not resolved.is_file():
+        raise FileNotFoundError(f"Topology file not found: {resolved}")
+    return resolved
 
 
 def hub_column_name(letter: str) -> str:
@@ -147,8 +185,8 @@ _SECTION_LABEL_STRINGS = frozenset(
 
 def _load_topology_cells(topology_path: Path | None = None) -> dict[str, dict[str, Any]]:
     if topology_path is not None:
-        topo = json.loads(topology_path.read_text(encoding="utf-8"))
-        return topo.get("cells", {})
+        path = _assert_topology_file(topology_path)
+        return _topology_cells_for_path(str(path.resolve()))
     return _topology_cells()
 
 
@@ -433,9 +471,13 @@ def collect_topology_manual_formula_cells(
     return {key: frozenset(cols) for key, cols in out.items()}
 
 
-def load_row_specs(excel_row: int) -> dict[str, HubColumnFormula]:
+def load_row_specs(
+    excel_row: int,
+    *,
+    topology_path: Path | None = None,
+) -> dict[str, HubColumnFormula]:
     """按 Hub Excel 行号加载 W–AI 公式规格。"""
-    cells = _topology_cells()
+    cells = _load_topology_cells(topology_path)
     specs: dict[str, HubColumnFormula] = {}
     for letter in HUB_LETTERS_W_AI:
         key = f"提成汇总!{letter}{excel_row}"

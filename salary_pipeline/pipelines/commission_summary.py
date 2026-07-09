@@ -12,6 +12,21 @@ from salary_pipeline.utils.excel_format import format_writer_sheet
 
 logger = logging.getLogger(__name__)
 
+# Row 1 title, row 2 source annotations, row 3 headers, row 4+ data
+EXPORT_TITLE_ROW = 1
+EXPORT_SOURCE_ROW = 2
+EXPORT_HEADER_ROW = 3
+EXPORT_DATA_START_ROW = 4
+LEGEND_INSERT_ROW = 2
+
+
+def computed_highlight_rows(
+    *, legend_inserted: bool, legend_present: bool = False
+) -> tuple[int, int]:
+    """Return (header_row, data_start_row) for computed export after optional legend."""
+    offset = 1 if legend_inserted or legend_present else 0
+    return EXPORT_HEADER_ROW + offset, EXPORT_DATA_START_ROW + offset
+
 # Excel 提成汇总表头（与样板月一致，聚合时按列名对齐）
 SUMMARY_TEMPLATE_COLUMNS = [
     "序号", "店别", "职务", "姓名", "人数", "考核量", "实际销量", "销量完成率",
@@ -103,14 +118,34 @@ class CommissionSummaryBuilder:
         output_path: Path,
         sheet_name: str = "提成汇总",
     ) -> Path:
+        from salary_pipeline.pipelines.commission_summary_column_sources import (
+            build_source_annotation_row,
+        )
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
         aligned = self._align_to_template(summary)
+        source_labels = build_source_annotation_row(list(aligned.columns))
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             title = pd.DataFrame([[sheet_name]], columns=[sheet_name])
-            title.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startrow=0)
-            aligned.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1)
+            title.to_excel(
+                writer, sheet_name=sheet_name, index=False, header=False, startrow=0
+            )
+            source_df = pd.DataFrame([source_labels], columns=list(aligned.columns))
+            source_df.to_excel(
+                writer,
+                sheet_name=sheet_name,
+                index=False,
+                header=False,
+                startrow=EXPORT_SOURCE_ROW - 1,
+            )
+            aligned.to_excel(
+                writer,
+                sheet_name=sheet_name,
+                index=False,
+                startrow=EXPORT_HEADER_ROW - 1,
+            )
             format_writer_sheet(
-                writer, sheet_name, aligned.columns, header_row=2
+                writer, sheet_name, aligned.columns, header_row=EXPORT_HEADER_ROW
             )
         logger.info("Exported commission summary -> %s", output_path)
         return output_path

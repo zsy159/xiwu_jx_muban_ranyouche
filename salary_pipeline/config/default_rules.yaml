@@ -1,0 +1,14 @@
+# 系统固化计算规则（2026-05 样板月公式拓扑）。
+# 新月 onboard 默认绑定此处路径：仅上传数据 workbook 路径，公式地图始终来自 repo。
+canonical_month: "2026-05"
+label: "2026-05样板（系统固化规则）"
+
+topology:
+  sales: data/topology/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).topology.json
+  rules: data/topology/2026-05/提成依据.topology.json
+  aftersales: data/topology/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).topology.json
+
+# Structure-only references for upload trial (row keys / hub formulas — no metric bootstrap).
+hub_topology: data/topology/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).topology.json
+skeleton_reference_workbook: data/raw/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).xlsx
+# Optional upload 人员信息.xlsx (店别/职务/姓名) overrides skeleton when sales lacks 提成汇总.

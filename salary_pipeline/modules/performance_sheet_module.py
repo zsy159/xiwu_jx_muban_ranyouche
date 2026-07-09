@@ -47,7 +47,11 @@ class PerformanceSheetModule:
 
         loader = build_workbook_loader(context)
         billing_month = perf_cfg.get("billing_month") or month_config.get("month")
-        builder = PerformanceSheetBuilder(loader, billing_month=billing_month)
+        builder = PerformanceSheetBuilder(
+            loader,
+            billing_month=billing_month,
+            month_config=month_config,
+        )
         frame = builder.build()
 
         context["computed_perf_frame"] = frame

@@ -15,6 +15,7 @@ from salary_pipeline.ingestion_upload.file_intake import (
 from salary_pipeline.ingestion_upload.manifest import (
     FAMILY_SALES,
     group_manifest_by_family,
+    is_mandatory_input,
     required_input_sheets,
 )
 from salary_pipeline.ingestion_upload.sheet_merge import build_consolidated_workbook
@@ -52,7 +53,7 @@ class UploadIntakeSimulationTest(unittest.TestCase):
         self.assertTrue(intake.all_required_ready)
         self.assertIsNone(intake.rules_workbook)
 
-        required = [m for m in intake.matches if not m.required.optional_note]
+        required = [m for m in intake.matches if is_mandatory_input(m.required)]
         ready = [m for m in required if m.status == SheetMatchStatus.READY]
         self.assertEqual(len(ready), len(required))
         self.assertEqual(len(required), len(required_input_sheets()))
@@ -103,7 +104,8 @@ class UploadIntakeSimulationTest(unittest.TestCase):
             conflict_names
             & {"新媒体", "邀约专员提成", "客户部提成", "直营店经理提成 (财务)"}
         )
-        self.assertFalse(intake.all_required_ready)
+        # Role-family sheets are optional; mandatory sales inputs can still be ready.
+        self.assertTrue(intake.all_required_ready)
         self.assertFalse(intake.can_proceed())
         sales_name = GOLDEN_SALES.name
         resolutions = {
@@ -133,7 +135,7 @@ class UploadIntakeSimulationTest(unittest.TestCase):
         )
         match_by_name = {m.required.name: m for m in intake.matches}
         groups = dict(group_manifest_by_family())
-        sales_sheets = [s for s in groups[FAMILY_SALES] if not s.optional_note]
+        sales_sheets = [s for s in groups[FAMILY_SALES] if is_mandatory_input(s)]
         missing_in_sales = [
             s.name
             for s in sales_sheets

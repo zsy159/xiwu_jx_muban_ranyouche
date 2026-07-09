@@ -55,3 +55,20 @@ def combined_gated_row_mask(df: pd.DataFrame, hub_cfg: dict[str, Any]) -> pd.Ser
         if match:
             mask = mask | family_row_mask(df, match)
     return mask
+
+
+def hub_columns_for_row(row: pd.Series, hub_cfg: dict[str, Any]) -> frozenset[str]:
+    """Union of ``hub_columns`` for all gated families matching ``row``."""
+    cols: set[str] = set()
+    for spec in gated_families(hub_cfg).values():
+        match = spec.get("match", {})
+        if match and row_matches_family(row, match):
+            cols.update(spec.get("hub_columns", []))
+    return frozenset(cols)
+
+
+def is_gated_performance_column(
+    row: pd.Series, column: str, hub_cfg: dict[str, Any]
+) -> bool:
+    """True when ``column`` is in scope for parity on this gated row."""
+    return column in hub_columns_for_row(row, hub_cfg)

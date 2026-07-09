@@ -5,8 +5,16 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+import logging
+
 import pandas as pd
 from openpyxl import load_workbook
+
+from salary_pipeline.pipelines.performance_sheet_paths import (
+    load_performance_sheet_frame,
+)
+
+logger = logging.getLogger(__name__)
 
 # Hub columns that SUMIFS 绩效整理表 AH by 销售顾问
 HUB_COLUMNS_FROM_AH = frozenset({"权限结余绩效"})
@@ -45,20 +53,26 @@ def load_computed_ah_by_vin(
     computed_perf_path: Path,
     *,
     sheet_name: str = "绩效整理表",
-    header_row: int = 2,
 ) -> dict[str, float]:
     """Map VIN → computed 整车超额 from exported performance sheet."""
     if not computed_perf_path.exists():
         return {}
-    df = pd.read_excel(
-        computed_perf_path,
-        sheet_name=sheet_name,
-        header=header_row - 1,
-        engine="openpyxl",
+    try:
+        df = load_performance_sheet_frame(computed_perf_path, sheet_name=sheet_name)
+    except (ValueError, KeyError) as exc:
+        logger.warning(
+            "Skipping computed AH load — malformed performance sheet %s: %s",
+            computed_perf_path,
+            exc,
+        )
+        return {}
+    if df.empty:
+        return {}
+    vin_col = "O" if "O" in df.columns else ("VIN码" if "VIN码" in df.columns else None)
+    ah_col = "AH" if "AH" in df.columns else (
+        "整车超额" if "整车超额" in df.columns else None
     )
-    vin_col = "VIN码" if "VIN码" in df.columns else "O"
-    ah_col = "整车超额" if "整车超额" in df.columns else "AH"
-    if vin_col not in df.columns or ah_col not in df.columns:
+    if vin_col is None or ah_col is None:
         return {}
     out: dict[str, float] = {}
     for vin, ah in zip(df[vin_col], df[ah_col], strict=False):

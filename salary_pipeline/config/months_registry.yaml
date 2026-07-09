@@ -1,23 +1,8 @@
-default_month: 2026-05
 months:
   2026-05:
     label: 2026年05月
-    config: month.yaml
-    status: active
+    config: month-2026-05.yaml
+    status: imported
     sources:
       raw_dir: data/raw/2026-05
       output_dir: output/2026-05
-  2026-02:
-    label: 2026年02月
-    config: month-2026-02.yaml
-    status: active
-    sources:
-      raw_dir: data/raw/2026-02
-      output_dir: output/2026-02
-  2026-04:
-    label: 2026年04月
-    config: month-2026-04.yaml
-    status: active
-    sources:
-      raw_dir: data/raw/2026-04
-      output_dir: output/2026-04

@@ -12,19 +12,29 @@ VIN_COL = "BD"
 ORDER_COL = "B"
 ADVISOR_COL = "BJ"
 ORDER_DATE_COL = "BA"
+SETTLE_DATE_COL = ORDER_DATE_COL  # 绩效整理表 M — 结算日期Refresh
 ORDER_TYPE_COL = "AZ"
 # 闭包列上下文（中文表头 → 列字母，见 Excel row 2）
 DEPARTMENT_COL = "BL"  # 部门 → 绩效整理表 R
 ORDER_TOTAL_COL = "AO"  # 订单合计(含税) → L
 DECORATION_FLOOR_COL = "BQ"  # 精品最低价金额 → S
 VEHICLE_TYPE_COL = "D"  # 车种 → H
+VEHICLE_MODEL_COL = "F"  # 车型 → J
 CHANNEL_COL = "E"  # 销售渠道 → I
+OWNER_NAME_COL = "BC"  # 车主名称 → N
+REVIEWER_COL = "BK"  # 审核人 → Q
 ORDER_CONTEXT_COLS = (
     VEHICLE_TYPE_COL,
     CHANNEL_COL,
     DEPARTMENT_COL,
     ORDER_TOTAL_COL,
     DECORATION_FLOOR_COL,
+)
+ORDER_METADATA_COLS = ORDER_CONTEXT_COLS + (
+    VEHICLE_MODEL_COL,
+    SETTLE_DATE_COL,
+    OWNER_NAME_COL,
+    REVIEWER_COL,
 )
 HEADER_ROWS = 2  # rows 1–2 are headers / month label
 

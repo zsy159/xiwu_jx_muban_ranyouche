@@ -54,13 +54,18 @@ pip install -r requirements.txt
 python scripts/extract_formula_topology.py --month 2026-05
 
 # 2. 运行流水线（模块计算 → 聚合生成提成汇总）
-python main.py compute
+python main.py compute --month 2026-05
 
 # 3. 对账比对（计算结果 vs 金标准 Excel）
-python main.py reconcile
+python main.py reconcile --month 2026-05
 
 # 4. 计算后自动对账
-python main.py compute --reconcile
+python main.py compute --month 2026-05 --reconcile
+
+# 5. 注册新账期（uploads 已就位后）
+python main.py onboard-month --month 2026-07 \
+  --sales data/raw/2026-07/销售账套-合并-2026-07.xlsx \
+  --inherit-topology 2026-05
 ```
 
 ### 快速工作流（省时间）
@@ -80,6 +85,10 @@ python main.py compute --reconcile
 
 **发薪上传**（侧边栏「上传 → 发薪上传」）：上传当月底层 Excel，按工作表名称匹配必需表，试算预览后确认正式生成。
 
+**新月接入**（侧边栏「接入 → 新月接入」）：注册新账期、继承或反推 Hub 拓扑，与 CLI `onboard-month` 对齐。
+
+**财务调账**（侧边栏「财务 → 财务调账」）：在系统生成的绩效整理表基础上手工调整，保存为 `绩效整理表-财务确认版.xlsx`；下游算薪优先读取确认版。
+
 ```bash
 pip install -r requirements.txt   # 含 streamlit
 python run_console.py
@@ -90,10 +99,18 @@ python run_console.py
 
 ## 新月份接入
 
-1. 将三套 Excel 放入 `data/raw/2026-06/`
-2. 复制 `salary_pipeline/config/month.yaml` 中的路径为 `2026-06`（或新增 `month-2026-06.yaml` 后切换）
-3. 运行 `extract_formula_topology.py --month 2026-06`
-4. `python main.py compute --reconcile`
+推荐通过 CLI 或观察台「新月接入」页注册账期，详见 [docs/design/新月接入与Hub拓扑.md](docs/design/新月接入与Hub拓扑.md)。
+
+```bash
+# uploads 已就位：data/raw/<月>/uploads/ + sheet_sources.json
+python main.py onboard-month --month 2026-07 \
+  --sales data/raw/2026-07/销售账套-合并-2026-07.xlsx \
+  --inherit-topology 2026-05
+
+python main.py compute --month 2026-07
+```
+
+有带公式金标准账套时可用 `--extract-topology` 反推拓扑；`--inherit-topology` 与 `--extract-topology` 互斥。
 
 ## 设计要点
 

@@ -1,0 +1,43 @@
+# 提成汇总 AM–AP 调整列 — 声明式规则（HubAdjustmentRuleEngine）
+#
+# 适用范围：提成汇总全部人员行，按「姓名」匹配底层表；未匹配 = 0（与职务无关）。
+#
+# 月度活动列名（如 04月活动）由 month.yaml → hub.activity_column_name 配置，
+# 不得写死列名；parity.adjustment_columns 须登记当月列名。
+#
+# 数据来源：
+# - 综合表（上传表 data_only，header_row=4，B 键 / J、L 值）
+# - 重功超期+活动（上传表 data_only，header_row=3，Q 键 / X 值）
+# - 绩效整理表 computed_perf_frame（P 键 / AU 值，PerformanceSheetModule 系统计算）
+
+columns:
+  - hub_column: 综合项
+    op: sumif
+    source_sheet: 综合表
+    key_col: B
+    value_col: L
+    header_row: 4
+    match_by: 姓名
+
+  - hub_column_from_month: hub.activity_column_name
+    op: sumif
+    source_sheet: 重功超期+活动
+    key_col: Q
+    value_col: X
+    header_row: 3
+    match_by: 姓名
+
+  - hub_column: 超期
+    op: sumif
+    source_sheet: 绩效整理表
+    key_col: P
+    value_col: AU
+    match_by: 姓名
+
+  - hub_column: （已发放奖励）
+    op: sumif
+    source_sheet: 综合表
+    key_col: B
+    value_col: J
+    header_row: 4
+    match_by: 姓名

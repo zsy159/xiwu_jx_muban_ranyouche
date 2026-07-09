@@ -23,6 +23,10 @@ from salary_pipeline.data_ingestion.system_sales_gross_sheet import (
     DEPARTMENT_COL,
     ORDER_CONTEXT_COLS,
     ORDER_TOTAL_COL,
+    OWNER_NAME_COL,
+    REVIEWER_COL,
+    SETTLE_DATE_COL,
+    VEHICLE_MODEL_COL,
     VEHICLE_TYPE_COL,
     VIN_COL,
     load_system_sales_gross_frame,
@@ -76,7 +80,12 @@ def enrich_order_context(
         return skeleton.copy()
 
     out = skeleton.copy()
-    sg = load_system_sales_gross_frame(loader, value_cols=ORDER_CONTEXT_COLS)
+    sg = load_system_sales_gross_frame(loader, value_cols=ORDER_CONTEXT_COLS + (
+        VEHICLE_MODEL_COL,
+        SETTLE_DATE_COL,
+        OWNER_NAME_COL,
+        REVIEWER_COL,
+    ))
     sg = sg.drop_duplicates(VIN_COL, keep="first")
     sg_map = sg.set_index(VIN_COL)
     vins = out["O"].astype(str).str.strip()
@@ -84,6 +93,10 @@ def enrich_order_context(
     out["H"] = vins.map(sg_map[VEHICLE_TYPE_COL])
     out["I"] = vins.map(sg_map[CHANNEL_COL])
     out["R"] = vins.map(sg_map[DEPARTMENT_COL])
+    out["J"] = vins.map(sg_map[VEHICLE_MODEL_COL])
+    out["M"] = vins.map(sg_map[SETTLE_DATE_COL])
+    out["N"] = vins.map(sg_map[OWNER_NAME_COL])
+    out["Q"] = vins.map(sg_map[REVIEWER_COL])
     out["L"] = pd.to_numeric(vins.map(sg_map[ORDER_TOTAL_COL]), errors="coerce")
     out["S"] = pd.to_numeric(vins.map(sg_map[DECORATION_FLOOR_COL]), errors="coerce")
 
@@ -94,7 +107,14 @@ def enrich_order_context(
             comparison["B"].astype(str).str.strip(),
         )
     )
+    vehicle_to_summary = dict(
+        zip(
+            comparison["D"].astype(str).str.strip(),
+            comparison["E"].astype(str).str.strip(),
+        )
+    )
     out["A"] = out["R"].astype(str).str.strip().map(dept_to_summary)
+    out["C"] = out["H"].astype(str).str.strip().map(vehicle_to_summary)
     out["D"] = [
         _channel_label(a, i) for a, i in zip(out["A"], out["I"], strict=True)
     ]

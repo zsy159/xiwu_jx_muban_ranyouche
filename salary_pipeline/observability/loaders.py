@@ -105,14 +105,20 @@ def load_month_config_for(month_id: str) -> dict[str, Any]:
     return _patch_paths(patched)
 
 
-def register_month(month_id: str, label: str, raw_dir: str) -> None:
+def register_month(
+    month_id: str,
+    label: str,
+    raw_dir: str,
+    *,
+    config: str = "month.yaml",
+) -> None:
     """Append a month entry to months_registry.yaml (MVP: manual path registration)."""
     if not _MONTH_RE.match(month_id):
         raise ValueError(f"Invalid month id: {month_id}")
     registry = load_months_registry()
     registry.setdefault("months", {})[month_id] = {
         "label": label,
-        "config": "month.yaml",
+        "config": config,
         "status": "imported",
         "sources": {
             "raw_dir": raw_dir,

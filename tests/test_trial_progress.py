@@ -25,12 +25,12 @@ class TrialProgressEtaTests(unittest.TestCase):
         self.assertAlmostEqual(total, 100.0)
 
     def test_completed_fraction_at_stage_start(self) -> None:
-        # Entering hub_formula: merge + cache + performance done = 5+2+25 = 32%
-        frac = completed_fraction("full", "hub_formula", stage_started=True)
+        # Entering hub_metrics: merge + cache + performance done = 5+2+25 = 32%
+        frac = completed_fraction("full", "hub_metrics", stage_started=True)
         self.assertAlmostEqual(frac, 0.32)
 
     def test_completed_fraction_after_stage(self) -> None:
-        frac = completed_fraction("full", "hub_formula", stage_started=False)
+        frac = completed_fraction("full", "hub_metrics", stage_started=False)
         self.assertAlmostEqual(frac, 0.77)
 
     def test_estimate_remaining_uses_elapsed_ratio(self) -> None:

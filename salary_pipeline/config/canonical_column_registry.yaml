@@ -1,0 +1,324 @@
+# 销售账套标准模板 — 汇总数据表列注册（VIN 粒度）
+# 真相来源：performance_sheet_columns.yaml、底层表-列使用清单、data_ingestion/*
+# 维护：改 ingestion / builder 读取列时同步更新
+
+sheet: 汇总数据表
+join_key: vin
+data_start_row: 3   # row1=分组, row2=表头, row3+=数据
+
+groups:
+  - id: keys
+    label: 键列
+  - id: order
+    label: 订单骨架
+  - id: vehicle_cost
+    label: 整车成本
+  - id: terminal
+    label: 终端返利
+  - id: purchase
+    label: 购进与代交车
+  - id: insurance
+    label: 保险明细
+  - id: mortgage
+    label: 按揭
+  - id: decoration
+    label: 装饰
+
+columns:
+  # --- 键列 ---
+  - id: vin
+    label: VIN码
+    group: keys
+    source_sheet: 系统销售毛利
+    source_col: BD
+    join: vin
+    required: true
+    perf_col: O
+
+  - id: order_no
+    label: 订单号
+    group: keys
+    source_sheet: 系统销售毛利
+    source_col: B
+    join: vin
+    required: true
+    perf_col: G
+
+  - id: advisor
+    label: 销售顾问
+    group: keys
+    source_sheet: 系统销售毛利
+    source_col: BJ
+    join: vin
+    required: true
+    perf_col: P
+
+  - id: units
+    label: 台数
+    group: keys
+    source_sheet: null
+    source_col: null
+    join: vin
+    required: true
+    default: 1
+    perf_col: K
+    note: 整车订单默认 1；服务补录行可留空
+
+  # --- 订单骨架（系统销售毛利）---
+  - id: settle_date
+    label: 结算日期
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: BA
+    join: vin
+    perf_col: M
+
+  - id: order_type
+    label: 订单类型
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: AZ
+    join: vin
+    note: 骨架筛选「含整车订单」
+
+  - id: department
+    label: 部门
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: BL
+    join: vin
+    perf_col: R
+
+  - id: order_total
+    label: 订单合计(含税)
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: AO
+    join: vin
+    perf_col: L
+
+  - id: decoration_floor
+    label: 精品最低价金额
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: BQ
+    join: vin
+    perf_col: S
+
+  - id: vehicle_type
+    label: 车种
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: D
+    join: vin
+    perf_col: H
+
+  - id: channel
+    label: 销售渠道
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: E
+    join: vin
+    perf_col: I
+
+  - id: vehicle_model
+    label: 车型
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: F
+    join: vin
+    perf_col: J
+
+  - id: owner_name
+    label: 车主名称
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: BC
+    join: vin
+    perf_col: N
+
+  - id: reviewer
+    label: 审核人
+    group: order
+    source_sheet: 系统销售毛利
+    source_col: BK
+    join: vin
+    perf_col: Q
+
+  # --- 整车成本（INDEX/MATCH by VIN）---
+  - id: vehicle_settle_date
+    label: 整车结算日期
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: B
+    join: vin
+    source_key_col: K
+    note: 库存天数 E / 超期 AU 上游
+
+  - id: list_price
+    label: 出厂指导价/扣除降价补差
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: R
+    join: vin
+    source_key_col: K
+    perf_col: AW
+
+  - id: pickup_rebate
+    label: 提车现返
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: S
+    join: vin
+    source_key_col: K
+    perf_col: AX
+
+  - id: contract_bonus
+    label: 合同履约
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: T
+    join: vin
+    source_key_col: K
+    perf_col: AY
+
+  - id: project_surcharge
+    label: 项目金额附加费
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: U
+    join: vin
+    source_key_col: K
+    perf_col: AZ
+
+  - id: ad_rebate
+    label: 广告返利
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: V
+    join: vin
+    source_key_col: K
+    perf_col: BA
+
+  - id: pickup_reward
+    label: 提车奖励当月返
+    group: vehicle_cost
+    source_sheet: 整车成本
+    source_col: W
+    join: vin
+    source_key_col: K
+    perf_col: BB
+
+  # --- 终端返利 ---
+  - id: terminal_rebate
+    label: 终端返利
+    group: terminal
+    source_sheet: 终端明细表
+    source_col: P
+    join: vin
+    source_key_col: C
+    perf_col: BC
+    note: SUMIFS by VIN；负值计入整车毛利
+
+  # --- 购进与代交车 ---
+  - id: purchase_company
+    label: 购进公司
+    group: purchase
+    source_sheet: 工厂购进
+    source_col: CA
+    join: vin
+    source_key_col: C
+    perf_col: F
+
+  - id: used_car_commission
+    label: 代交车佣金
+    group: purchase
+    source_sheet: 系统二手车降价
+    source_col: BE
+    join: vin
+    source_key_col: CL
+    perf_col: BE
+
+  # --- 保险明细（SUMIF by VIN）---
+  - id: insurance_rebate
+    label: 保险返利收入
+    group: insurance
+    source_sheet: 保险明细
+    source_col: BP
+    join: vin
+    source_key_col: D
+    perf_col: AB
+
+  - id: insurance_commission
+    label: 保险提成
+    group: insurance
+    source_sheet: 保险明细
+    source_col: BS
+    join: vin
+    source_key_col: D
+    perf_col: AJ
+
+  - id: seat_insurance_perf
+    label: 座位险绩效
+    group: insurance
+    source_sheet: 保险明细
+    source_col: BU
+    join: vin
+    source_key_col: D
+    perf_col: AO
+
+  - id: glass_insurance_perf
+    label: 玻璃险绩效
+    group: insurance
+    source_sheet: 保险明细
+    source_col: BV
+    join: vin
+    source_key_col: D
+    perf_col: AP
+
+  # --- 按揭（SUMIF / INDEX by VIN）---
+  - id: mortgage_commission
+    label: 按揭提成
+    group: mortgage
+    source_sheet: 按揭明细
+    source_col: BO
+    join: vin
+    source_key_col: G
+    perf_col: AK
+
+  - id: mortgage_extra_reward
+    label: 吉致额外追加奖励
+    group: mortgage
+    source_sheet: 按揭明细
+    source_col: BR
+    join: vin
+    source_key_col: G
+    perf_col: AL
+
+  - id: mortgage_income
+    label: 按揭收入
+    group: mortgage
+    source_sheet: 按揭明细
+    source_col: Z
+    join: vin
+    source_key_col: G
+    perf_col: AC
+
+  - id: profit_product_reward
+    label: 盈利性奖励
+    group: mortgage
+    source_sheet: 按揭原表
+    source_col: AF
+    join: vin
+    source_key_col: AC
+    perf_col: AL
+
+  # --- 装饰（SUMIFS by 订单号）---
+  - id: decoration_cost
+    label: 装饰成本
+    group: decoration
+    source_sheet: 装饰台账
+    source_col: AK
+    join: order_no
+    source_key_col: N
+    perf_col: BH

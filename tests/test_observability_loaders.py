@@ -8,7 +8,6 @@ from salary_pipeline.observability.loaders import (
     discover_months,
     find_latest_parity_report,
     get_anchor_snapshots,
-    load_month_config_for,
     load_parity_report,
     render_acceptance_markdown,
     build_acceptance_summary,
@@ -22,9 +21,11 @@ class ObservabilityLoadersTest(unittest.TestCase):
         ids = [m.month_id for m in months]
         self.assertIn("2026-05", ids)
 
-    def test_load_month_config_for_default_month(self) -> None:
-        cfg = load_month_config_for("2026-05")
-        self.assertEqual(cfg["month"], "2026-05")
+    def test_load_month_config_requires_registry_entry(self) -> None:
+        from salary_pipeline.main import _resolve_month_config
+
+        with self.assertRaises(SystemExit):
+            _resolve_month_config("2026-05")
 
     def test_find_latest_hub_report(self) -> None:
         report_dir = PROJECT_ROOT / "output/2026-05/reports"

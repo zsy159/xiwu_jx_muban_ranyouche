@@ -18,6 +18,7 @@ from salary_pipeline.data_ingestion import (
     new_media_sheet as new_media,
 )
 from salary_pipeline.paths import CONFIG_DIR
+from salary_pipeline.modules.base import PERSONNEL_FILENAME, PERSONNEL_SHEET
 
 # Formula tables — not required inputs; note if present in uploads.
 FORMULA_SHEET_NOTES: tuple[str, ...] = (
@@ -33,6 +34,7 @@ FAMILY_DISPLAY_ORDER: tuple[str, ...] = (
     "客户专员",
     "直营店经理",
     "招聘",
+    "按揭内勤",
 )
 
 CLOSURE_SHEETS: tuple[str, ...] = (
@@ -51,10 +53,12 @@ CLOSURE_SHEETS: tuple[str, ...] = (
 # (family_label, sheet_name, header_row) — role-specific inputs from data_ingestion.
 ROLE_FAMILY_INPUTS: tuple[tuple[str, str, int], ...] = (
     ("新媒体", new_media.NEW_MEDIA_SHEET, 1),
+    ("新媒体", "翼真考核", 1),
     ("邀约专员", invite.INVITE_SHEET, 1),
     ("客户专员", customer.SHEET, 1),
     ("直营店经理", DIRECT_STORE_MANAGER_SHEET, 1),
     ("招聘", "招聘", 1),  # recruit_sheet.RECRUIT_SHEET — literal to avoid circular import
+    ("按揭内勤", "按揭绩效", 1),
 )
 
 
@@ -65,7 +69,20 @@ class RequiredSheet:
     source: str = "registry"  # registry | closure | role
     role: str = "input"
     optional_note: bool = False
+    optional_skeleton: bool = False
+    optional_input: bool = False
+    optional_role_family: bool = False
     families: tuple[str, ...] = (FAMILY_SALES,)
+
+
+def is_mandatory_input(sheet: RequiredSheet) -> bool:
+    """Sheets that block merge/trial when missing (excludes optional registry inputs)."""
+    return (
+        not sheet.optional_note
+        and not sheet.optional_skeleton
+        and not sheet.optional_input
+        and not sheet.optional_role_family
+    )
 
 
 def _load_registry() -> dict[str, Any]:
@@ -86,7 +103,14 @@ def _merge_sheet(
     merged_families = tuple(
         dict.fromkeys(existing.families + sheet.families)
     )
-    by_name[sheet.name] = replace(existing, families=merged_families)
+    by_name[sheet.name] = replace(
+        existing,
+        families=merged_families,
+        optional_note=existing.optional_note or sheet.optional_note,
+        optional_skeleton=existing.optional_skeleton or sheet.optional_skeleton,
+        optional_input=existing.optional_input or sheet.optional_input,
+        optional_role_family=existing.optional_role_family or sheet.optional_role_family,
+    )
 
 
 def build_required_sheet_manifest(
@@ -104,6 +128,7 @@ def build_required_sheet_manifest(
     for name, meta in sales.items():
         if meta.get("role") != "input":
             continue
+        optional_input = meta.get("required", True) is False
         _merge_sheet(
             by_name,
             RequiredSheet(
@@ -111,6 +136,7 @@ def build_required_sheet_manifest(
                 header_row=int(meta.get("header_row", 1)),
                 source="registry",
                 role="input",
+                optional_input=optional_input,
                 families=(FAMILY_SALES,),
             ),
         )
@@ -138,6 +164,7 @@ def build_required_sheet_manifest(
                 header_row=header_row,
                 source="role",
                 role="input",
+                optional_role_family=True,
                 families=(family,),
             ),
         )
@@ -156,13 +183,25 @@ def build_required_sheet_manifest(
             ),
         )
 
+    _merge_sheet(
+        by_name,
+        RequiredSheet(
+            name=PERSONNEL_SHEET,
+            header_row=1,
+            source="skeleton",
+            role="skeleton",
+            optional_skeleton=True,
+            families=(FAMILY_SALES,),
+        ),
+    )
+
     return list(by_name.values())
 
 
 def required_input_sheets(manifest: list[RequiredSheet] | None = None) -> list[RequiredSheet]:
-    """Only mandatory inputs (exclude optional formula notes)."""
+    """Only mandatory inputs (exclude optional formula notes and skeleton)."""
     manifest = manifest or build_required_sheet_manifest()
-    return [sheet for sheet in manifest if not sheet.optional_note]
+    return [sheet for sheet in manifest if is_mandatory_input(sheet)]
 
 
 def group_manifest_by_family(
@@ -198,4 +237,48 @@ def resolve_sheet_alias(name: str, available: set[str]) -> str | None:
     for candidate in available:
         if normalize_sheet_name(candidate) == normalized:
             return candidate
+    return None
+
+
+def filename_implies_sheet(filename: str, sheet_name: str) -> bool:
+    """True when upload filename (stem or known binding) maps to a manifest sheet."""
+    from pathlib import Path
+
+    from salary_pipeline.data_ingestion.factory_purchase_sheet import (
+        FACTORY_PURCHASE_FILENAME,
+        FACTORY_PURCHASE_SHEET,
+    )
+    from salary_pipeline.data_ingestion.used_car_discount_sheet import (
+        USED_CAR_DISCOUNT_FILENAME,
+        USED_CAR_DISCOUNT_SHEET,
+    )
+    from salary_pipeline.modules.base import PERSONNEL_FILENAME, PERSONNEL_SHEET
+
+    bindings = {
+        PERSONNEL_FILENAME: PERSONNEL_SHEET,
+        FACTORY_PURCHASE_FILENAME: FACTORY_PURCHASE_SHEET,
+        USED_CAR_DISCOUNT_FILENAME: USED_CAR_DISCOUNT_SHEET,
+    }
+    stem = Path(filename).stem
+    if normalize_sheet_name(stem) == normalize_sheet_name(sheet_name):
+        return True
+    bound = bindings.get(filename)
+    return bound is not None and normalize_sheet_name(bound) == normalize_sheet_name(
+        sheet_name
+    )
+
+
+def resolve_sheet_from_upload(
+    manifest_name: str,
+    *,
+    filename: str,
+    sheet_names: list[str],
+) -> str | None:
+    """Match manifest sheet to an inner worksheet, including filename fallback."""
+    available = set(sheet_names)
+    found = resolve_sheet_alias(manifest_name, available)
+    if found:
+        return found
+    if filename_implies_sheet(filename, manifest_name) and sheet_names:
+        return sheet_names[0]
     return None

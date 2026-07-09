@@ -25,7 +25,7 @@ def _optional_num(value: Any) -> float:
 
 
 def extract_block(loader: WorkbookLoader, row: int) -> StoreBlockInput:
-    ws = loader._workbook()[SHEET]
+    ws = loader.worksheet(SHEET)
     return StoreBlockInput(
         store_label=str(ws.cell(row, 2).value or ""),
         showroom_task=_num(ws.cell(row, 3).value),
@@ -58,7 +58,7 @@ def lookup_golden_r(loader: WorkbookLoader, role_name: str) -> float | None:
     role = get_role(role_name)
     if not role:
         return None
-    ws = loader._workbook()[SHEET]
+    ws = loader.worksheet(SHEET)
     total = 0.0
     found = False
     for block in role.get("excel_blocks", []):

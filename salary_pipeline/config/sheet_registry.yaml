@@ -11,6 +11,10 @@ sales_workbook:
   整车成本:
     role: input
     header_row: 1
+  工厂购进:
+    role: input
+    header_row: 1
+    note: 绩效整理表 F(购进公司) INDEX/MATCH by VIN；整车成本公式上游
   按揭明细:
     role: input
     header_row: 1
@@ -23,11 +27,17 @@ sales_workbook:
   翼真考核:
     role: input
     header_row: 1
-    note: 提成汇总 AK 列 SUMIF 翼真店管理岗整车完成考核
+    required: false
+    note: 新媒体翼真 AK 列 SUMIF 源；岗位族专用，缺失不阻断试算
   按揭原表:
     role: input
     header_row: 1
     note: 绩效整理表 AL/闭包 Z；按揭明细公式上游（Phase B Slice 3）
+  按揭绩效:
+    role: input
+    header_row: 1
+    required: false
+    note: 按揭内勤 Hub 加装绩效（Y）引用 AF 列；岗位族专用，缺失不阻断试算
   指标汇总:
     role: input
     header_row: 1
@@ -48,6 +58,20 @@ sales_workbook:
     role: input
     header_row: 2
     note: 订单骨架 O/G/P + INDEX/MATCH 顾问列（Phase B Slice 4）
+  系统二手车降价:
+    role: input
+    header_row: 2
+    note: 绩效整理表 BE(代交车佣金) INDEX/MATCH by VIN；系统销售毛利公式上游
+  产品经理提成核算:
+    role: input
+    header_row: 1
+    required: false
+    note: Hub 拓扑回放 — 管理岗整车完成考核等（如 AK）；有管理岗行键时再上传
+  销售管理岗提成依据 新标:
+    role: input
+    header_row: 1
+    required: false
+    note: Hub 拓扑回放 — 销售管理岗 AK 等列 SUMIF/INDEX 上游；有管理岗行键时再上传
   销售任务及完成率:
     role: formula
     header_row: 1

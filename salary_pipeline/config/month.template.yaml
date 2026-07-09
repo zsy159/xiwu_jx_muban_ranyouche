@@ -1,32 +1,27 @@
-month: 2026-02
+month: 2026-05
 performance_sheet:
   use_computed: true
-  billing_month: 2026-02
+  billing_month: 2026-05
   use_golden_perf_sheet: false
 hub:
   bootstrap_from_golden: false
+  activity_column_name: ""
 workbooks:
-  sales: data/raw/2026-02/销售账套-合并-2026-02.xlsx
-  aftersales: data/raw/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).xlsx
-  rules: data/raw/2026-02/提成依据.xlsx
-  sheet_sources_file: data/raw/2026-02/sheet_sources.json
+  sales: ""
+  aftersales: ""
+  rules: ""
 topology:
-  sales: data/topology/2026-02/燃油车-2026年02月西物超市销售提成.topology.json
-  aftersales: data/topology/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).topology.json
-  rules: data/topology/2026-05/提成依据.topology.json
+  sales: ""
+  aftersales: ""
+  rules: ""
 outputs:
-  cache_dir: output/2026-02/cache
+  cache_dir: output/2026-05/.staging/cache
   commission_summary_sheet: 提成汇总
-  commission_summary_file: output/2026-02/提成汇总.xlsx
-  performance_sheet_file: output/2026-02/绩效整理表-系统生成.xlsx
-  aftersales_wuhou: output/2026-02/02月提成-武侯售后.xlsx
-  aftersales_airport: output/2026-02/02月提成-机场售后.xlsx
-  xw_payout: output/2026-02/XW提成-发.xlsx
-  direct_store_payout: output/2026-02/直营店提成-发.xlsx
-  cs_payout: output/2026-02/CS提成-发.xlsx
-  report_dir: output/2026-02/reports
+  commission_summary_file: output/2026-05/.staging/提成汇总.xlsx
+  performance_sheet_file: output/2026-05/.staging/绩效整理表-系统生成.xlsx
+  report_dir: output/2026-05/.staging/reports
 parity:
-  golden_workbook: 燃油车-2026年02月西物超市销售提成.xlsx
+  golden_workbook: ""
   golden_sheet: 提成汇总
   header_row: 2
   data_start_row: 3
@@ -49,6 +44,11 @@ parity:
   - 加装毛利
   - 保险毛利
   - 按揭毛利
+  adjustment_columns:
+  - 综合项
+  - 04月活动
+  - 超期
+  - （已发放奖励）
   performance_columns:
   - 整车绩效
   - 权限结余绩效
@@ -63,17 +63,16 @@ parity:
   - 座位险提成
   - 二手车提成
   - 玻碎险提成
-  reference_golden_workbook: 燃油车-2026年02月西物超市销售提成.xlsx
 aftersales:
   header_row: 3
   data_start_row: 5
   stores:
     wuhou:
-      anchor_sheet: 05月提成-武侯售后
-      golden_workbook: data/raw/2026-02/燃油车-2026年05月吉利超市售后提成(终)(1).xlsx
+      anchor_sheet: 提成-武侯售后
+      golden_workbook: ""
     airport:
-      anchor_sheet: 05月提成-机场售后
-      golden_workbook: data/raw/2026-02/燃油车-2026年05月吉利超市售后提成(终)(1).xlsx
+      anchor_sheet: 提成-机场售后
+      golden_workbook: ""
 aftersales_parity:
   join_keys:
   - 店别
@@ -104,16 +103,15 @@ aftersales_parity:
   - 实发提成
 payout:
   data_start_row: 3
-  use_computed_hub: true
   xw:
     anchor_sheet: XW提成-发
-    golden_workbook: 燃油车-2026年02月西物超市销售提成.xlsx
+    golden_workbook: ""
   direct_store:
     anchor_sheet: 直营店提成-发
-    golden_workbook: 燃油车-2026年02月西物超市销售提成.xlsx
+    golden_workbook: ""
   cs:
     anchor_sheet: CS提成-发
-    golden_workbook: 燃油车-2026年02月西物超市销售提成.xlsx
+    golden_workbook: ""
 payout_parity:
   join_keys:
   - 店别
@@ -121,7 +119,6 @@ payout_parity:
   - 姓名
   role_column: 店别
   numeric_tolerance: 0.0001
-  auto_highlight: true
   data_start_row: 3
   columns:
   - 考核量
@@ -140,7 +137,6 @@ direct_store_parity:
   - 姓名
   role_column: 店别
   numeric_tolerance: 0.0001
-  auto_highlight: true
   data_start_row: 3
   columns:
   - 考核量
@@ -160,7 +156,6 @@ cs_parity:
   - 姓名
   role_column: 店别
   numeric_tolerance: 0.0001
-  auto_highlight: false
   data_start_row: 3
   columns:
   - 考核量

@@ -11,6 +11,7 @@ from salary_pipeline.calculators.new_media.finance_inputs import load_finance_hu
 from salary_pipeline.config.hub_performance_loader import load_hub_performance_config
 from salary_pipeline.data_ingestion.data_loader import build_workbook_loader, normalize_name
 from salary_pipeline.data_ingestion.new_media_sheet import (
+    NEW_MEDIA_SHEET,
     lookup_vehicle_performance,
     load_new_media_performance_frame,
 )
@@ -62,7 +63,16 @@ class NewMediaPerformanceModule(BaseCommissionModule):
             )
 
         loader = build_workbook_loader(context)
-        source = load_new_media_performance_frame(loader)
+        sheet = str(family.get("source", {}).get("sheet", NEW_MEDIA_SHEET))
+        sheet_available = loader.has_sheet(sheet)
+        if not sheet_available:
+            logger.warning(
+                "%s: sheet %r missing; overlay leaves %s empty",
+                self.name,
+                sheet,
+                HUB_COLUMN,
+            )
+        source = load_new_media_performance_frame(loader) if sheet_available else pd.DataFrame()
         month = context.get("month_config", {}).get("month", "")
         finance_overrides = load_finance_hub_overrides(month) if month else {}
 
@@ -107,7 +117,8 @@ class NewMediaPerformanceModule(BaseCommissionModule):
                 "rules_sheet": family.get("rules_sheet"),
                 "algorithm": "calculator_with_sumif_fallback",
                 "finance_overrides": len(finance_overrides),
-                "source_sheet": "新媒体",
+                "source_sheet": sheet,
+                "sheet_available": sheet_available,
                 "rows": len(metrics),
             },
         )

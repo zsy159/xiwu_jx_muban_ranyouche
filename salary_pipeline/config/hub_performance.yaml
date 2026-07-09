@@ -1,19 +1,31 @@
 # Hub W–AI 绩效列：按岗位族分治（对齐 提成依据.xlsx / commission_rules manifest）
 #
-# 设计原则：
-# - 不能像 F–P 那样指望 HubFormulaEngine 一套拓扑公式覆盖全员
+# 设计原则（2026-07-06 决策：全面规则引擎，禁止逐格 topology 回放）：
+# - 每个岗位族对应「一套固定规则」；同列因店别/姓名不同的差异，在规则内以
+#   显式分组/模板选择器表达（如销售顾问 template_selector），不做按行号推断
 # - 各岗位族的计算方法来自 提成依据 中对应 sheet（与 modules/ 业务模块一致）
-# - HubFormulaEngine 仅作「拓扑回放」过渡层；岗位模块算出的结果应写入对应 hub 列
+# - 销售顾问 / 销售主管 / 销售助理已迁移为声明式规则引擎，三者共用同一套
+#   规则与同一模块（config/hub_column_rules.yaml + pipelines/hub_rule_engine.py
+#   + modules/sales_advisor_performance.py，2026-07-07 起统一）
+# - 非一线管理（销售管理部/事业部/总经办）W/Y/X/Z 经 2026-05 金标准验证系人工
+#   填入固定数值/引用人工子表，非系统计算列，登记为 delegate: manual_semantic
+#   （hub_column_rules.yaml），W/Y/Z 暂留空 + 手工填入标注，不作 topology 兜底
 #
 # manifest: salary_pipeline/config/commission_rules/manifest.yaml
-
-fallback:
-  mode: topology_replay
-  note: 未登记岗位族时，暂用 HubFormulaEngine 按 Excel 公式格回放
+#
+# overlay_path（Hub W–AI 写入口径）：
+#   delegate_module      — 独立岗位族子表 + modules/*_performance.py，不读绩效整理表
+#   hub_rule_engine_perf — HubRuleEngine + computed_perf_frame（系统绩效整理表）
+#   hub_topology_or_static — 非一线管理手工/静态（非系统计算）
+#
+# 销售主线（终端明细等 → 绩效整理表 → Hub F–P → 销售顾问 overlay）仅覆盖
+# 销售顾问/主管/助理；下列岗位族 overlay 在 sales.py PERFORMANCE_OVERLAY_REGISTRY
+# 中独立运行，缺失岗位族上传表时 warning + 留空，不阻断试算。
 
 role_families:
   新媒体:
     module: new_media_performance
+    overlay_path: delegate_module
     rules_sheet: 新媒体
     algorithm: calculator_with_sumif_fallback
     match:
@@ -28,11 +40,17 @@ role_families:
     parity_gate: true
 
   销售顾问:
+    # 2026-07-07：用户要求所有销售类岗位统一用本 family 的规则（见
+    # hub_column_rules.yaml 顶部注释）；match 职务列表现含销售主管/销售助理，
+    # 由同一个 SalesAdvisorPerformanceModule（match_advisor_row）负责写 overlay。
+    # 原独立「销售主管」family（仅 W/Y/Z ×H）已并入本条并删除。
     module: sales_advisor_performance
+    overlay_path: hub_rule_engine_perf
     rules_sheet: 销售提成标准
-    algorithm: perf_sheet_sumif_with_completion_rate
+    algorithm: hub_rule_engine
+    rule_config: hub_column_rules.yaml
     match:
-      职务: 销售顾问
+      职务: [销售顾问, 销售主管, 销售助理]
     source:
       workbook: sales
       sheet: 绩效整理表
@@ -49,15 +67,9 @@ role_families:
     # 164 条提成标准 ≠ 49 可比 Hub 行；仅 hub_linked 写 overlay（见 sales_advisor_roles.yaml）
     parity_gate: true
 
-  销售主管:
-    rules_sheet: 销售提成标准
-    hub_columns:
-      - 整车绩效
-      - 加装绩效
-      - 保险绩效
-
   邀约专员:
     module: invite_specialist_performance
+    overlay_path: delegate_module
     rules_sheet: 邀约专员提成
     algorithm: calculator_with_sumif_fallback
     match:
@@ -76,6 +88,7 @@ role_families:
 
   客户专员:
     module: customer_specialist_performance
+    overlay_path: delegate_module
     rules_sheet: 客户部提成
     algorithm: cell_ref_subsheet
     match:
@@ -90,6 +103,7 @@ role_families:
 
   直营店经理:
     module: direct_store_manager_performance
+    overlay_path: delegate_module
     rules_sheet: 直营店经理提成 (财务)
     algorithm: store_block_with_attach_row
     match:
@@ -107,6 +121,7 @@ role_families:
   # 销售管理部 / 事业部 / 总经办：金标准 W/Y 子表头为岗位绩效/业绩绩效
   # 支持部门（财务部等）：row 161 子表头 M–Z，见 non_frontline_roles.yaml support tier
   # Hub 仍写物理列；系统另增全部语义列（含售后总产值、台次、提成系数等）
+    overlay_path: hub_topology_or_static
     rules_sheet: 销售提成标准
     algorithm: hub_topology_or_static
     match:
@@ -135,6 +150,7 @@ role_families:
 
   招聘:
     module: recruit_performance
+    overlay_path: delegate_module
     rules_sheet: 销售提成标准
     algorithm: team_allocation
     match:
@@ -153,4 +169,66 @@ role_families:
         amount: W
     hub_columns:
       - 保险绩效
+    parity_gate: true
+
+  内勤:
+    module: store_clerk_performance
+    overlay_path: hub_rule_engine_perf
+    rules_sheet: 销售提成标准
+    algorithm: hub_rule_engine
+    rule_config: hub_column_rules.yaml
+    match:
+      职务: [内勤, 出纳+内勤]
+    hub_columns:
+      - 整车绩效
+      - 权限结余绩效
+      - 加装绩效
+      - 保险绩效
+      - 整车完成考核
+    parity_gate: true
+
+  网络顾问:
+    module: network_advisor_performance
+    overlay_path: hub_rule_engine_perf
+    rules_sheet: 销售提成标准
+    algorithm: hub_rule_engine
+    rule_config: hub_column_rules.yaml
+    match:
+      职务: [网络部, 区域顾问, 销售内勤, 渠道]
+    hub_columns:
+      - 整车绩效
+      - 权限结余绩效
+      - 加装绩效
+      - 保险绩效
+    parity_gate: true
+
+  新媒体翼真:
+    module: yizhen_new_media_performance
+    overlay_path: hub_rule_engine_perf
+    rules_sheet: 销售提成标准
+    algorithm: hub_rule_engine
+    rule_config: hub_column_rules.yaml
+    match:
+      店别: 西物-翼真
+      职务: 新媒体
+    hub_columns:
+      - 整车绩效
+      - 权限结余绩效
+      - 加装绩效
+      - 保险绩效
+      - 整车完成考核
+    parity_gate: true
+
+  按揭内勤:
+    module: mortgage_clerk_performance
+    overlay_path: delegate_module
+    rules_sheet: 销售提成标准
+    algorithm: cell_ref_subsheet
+    match:
+      职务: 按揭内勤
+    source:
+      workbook: sales
+      sheet: 按揭绩效
+    hub_columns:
+      - 加装绩效
     parity_gate: true

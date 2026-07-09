@@ -14,14 +14,21 @@ import pandas as pd
 
 from salary_pipeline.ingestion_upload.progress import TrialProgressReporter
 from salary_pipeline.ingestion_upload.month_config import (
-    load_written_month_config,
-    write_month_config,
+    build_month_config_dict,
+    persist_month_config,
 )
-from salary_pipeline.ingestion_upload.sheet_merge import load_sheet_sources
+from salary_pipeline.ingestion_upload.sheet_merge import (
+    load_sheet_sources,
+    load_sheet_sources_for_workbook,
+    resolve_sheet_sources_path,
+)
 from salary_pipeline.paths import PROJECT_ROOT, output_month_dir, resolve_project_path
 from salary_pipeline.pipelines.performance_sheet_export import (
     export_computed_performance_sheet,
     prepare_export_frame,
+)
+from salary_pipeline.pipelines.performance_sheet_formatting import (
+    resolve_perf_golden_path,
 )
 from salary_pipeline.pipelines.run_cache import (
     cache_is_valid,
@@ -40,6 +47,45 @@ CacheSource = Literal["staging", "formal"] | None
 # Honest UX hints (minutes); incremental assumes hub cache hit.
 ESTIMATED_FULL_MINUTES = "8–12"
 ESTIMATED_INCREMENTAL_MINUTES = "2–5"
+_HUB_TOPOLOGY_MIN_CELLS = 100
+
+
+def _topology_hub_cell_count(topology_path: Path) -> int:
+    import json
+
+    if not topology_path.is_file():
+        return 0
+    topo = json.loads(topology_path.read_text(encoding="utf-8"))
+    return sum(1 for key in topo.get("cells", {}) if key.startswith("提成汇总!"))
+
+
+def resolve_trial_sales_topology(
+    topology_rel: str | Path,
+    month_id: str,
+) -> tuple[str, str]:
+    """
+    Use upload-extracted topology when it contains hub formulas; otherwise
+    fall back to canonical hub_topology from default_rules.yaml.
+    """
+    rel = str(topology_rel)
+    topo_path = resolve_project_path(rel)
+    if _topology_hub_cell_count(topo_path) >= _HUB_TOPOLOGY_MIN_CELLS:
+        return rel, "upload"
+
+    from salary_pipeline.ingestion_upload.default_rules import load_default_rules
+
+    cfg = load_default_rules()
+    hub_rel = cfg.get("hub_topology") or (cfg.get("topology") or {}).get("sales")
+    if hub_rel:
+        hub_path = resolve_project_path(hub_rel)
+        if _topology_hub_cell_count(hub_path) >= _HUB_TOPOLOGY_MIN_CELLS:
+            logger.info(
+                "Trial %s: upload topology lacks hub formulas; using canonical %s",
+                month_id,
+                hub_rel,
+            )
+            return str(hub_rel), "canonical"
+    return rel, "upload"
 
 
 @dataclass
@@ -207,11 +253,13 @@ def run_trial_compute(
 
     consolidated_rel = _relative(consolidated_workbook)
     rules_rel = _relative(rules_workbook) if rules_workbook else None
-    topo_rel = str(topology_rel)
+    topo_rel, topo_source = resolve_trial_sales_topology(topology_rel, month_id)
+    if sheet_sources_path is None:
+        sheet_sources_path = resolve_sheet_sources_path(consolidated_workbook)
     sources_rel = _relative(sheet_sources_path) if sheet_sources_path else None
 
     _progress("check_cache", "准备账期配置…")
-    config_path = write_month_config(
+    month_config = build_month_config_dict(
         month_id,
         sales_workbook=consolidated_rel,
         rules_workbook=rules_rel,
@@ -219,9 +267,10 @@ def run_trial_compute(
         rules_topology=topo_rel if rules_rel else None,
         sheet_sources_file=sources_rel,
         staging=True,
-        config_dir=config_dir,
     )
-    month_config = load_written_month_config(month_id)
+    config_path = persist_month_config(
+        month_id, month_config, config_dir=config_dir
+    )
 
     staging_dir = resolve_project_path(
         month_config["outputs"]["commission_summary_file"]
@@ -246,7 +295,10 @@ def run_trial_compute(
             )
 
         pipeline = SalesPipeline(config_dir=config_path.parent, month_config=month_config)
-        sheet_sources = load_sheet_sources(sheet_sources_path)
+        sheet_sources = load_sheet_sources_for_workbook(
+            consolidated_workbook,
+            explicit=sheet_sources_path,
+        )
         if not sheet_sources and month_config.get("workbooks", {}).get(
             "sheet_sources_file"
         ):
@@ -279,7 +331,12 @@ def run_trial_compute(
                     month_config["outputs"]["performance_sheet_file"]
                 )
                 title = f"{month_id} 销售绩效整理表（系统生成）"
-                export_computed_performance_sheet(computed_perf, perf_path, title=title)
+                export_computed_performance_sheet(
+                    computed_perf,
+                    perf_path,
+                    title=title,
+                    golden_path=resolve_perf_golden_path(month_config),
+                )
                 result.performance_sheet_path = perf_path
         else:
             result.errors.append("绩效整理表未生成（检查明细输入是否齐全）")

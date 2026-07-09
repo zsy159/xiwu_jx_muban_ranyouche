@@ -14,7 +14,7 @@ FULL_STAGE_WEIGHTS: dict[str, tuple[float, str]] = {
     "merge_topology": (5.0, "合并账套 / 提取拓扑"),
     "check_cache": (2.0, "检查 Hub 缓存"),
     "performance_sheet": (25.0, "绩效整理表"),
-    "hub_formula": (45.0, "Hub 公式回放"),
+    "hub_metrics": (45.0, "Hub 列规则计算"),
     "overlay": (20.0, "岗位绩效 overlay"),
     "export_preview": (3.0, "写出 / 预览"),
 }

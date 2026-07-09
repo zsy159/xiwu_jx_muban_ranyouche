@@ -324,9 +324,10 @@ class PerformanceSheetBuilderTest(unittest.TestCase):
         """Computed O/P/K/G parity with golden (join on VIN)."""
         built = self.builder.build_slice_4()
         golden = _golden_order_skeleton(self.loader)
-        self.assertEqual(len(built), len(golden))
-        self.assertEqual(set(built["O"]), set(golden["O"]))
-        key_frame = built[["O", "P", "K", "G"]].merge(
+        built_vin = built[built["O"].notna()].copy()
+        self.assertEqual(len(built_vin), len(golden))
+        self.assertEqual(set(built_vin["O"]), set(golden["O"]))
+        key_frame = built_vin[["O", "P", "K", "G"]].merge(
             golden[["O", "P", "K", "G"]], on="O", suffixes=("_built", "_golden")
         )
         self.assertEqual(len(key_frame), len(golden))

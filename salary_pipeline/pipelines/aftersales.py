@@ -30,9 +30,17 @@ class AftersalesPipeline:
         "airport": AIRPORT_CONFIG,
     }
 
-    def __init__(self, config_dir: Path | None = None, store: str = "wuhou") -> None:
+    def __init__(
+        self,
+        config_dir: Path | None = None,
+        store: str = "wuhou",
+        month_config: dict[str, Any] | None = None,
+    ) -> None:
         self.config_dir = config_dir or CONFIG_DIR
-        self.month_config = load_month_config(self.config_dir)
+        if month_config is not None:
+            self.month_config = month_config
+        else:
+            self.month_config = load_month_config(self.config_dir)
         self.store = store
         self.engine_config = self.STORE_CONFIGS[store]
 

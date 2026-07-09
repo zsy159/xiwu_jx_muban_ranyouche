@@ -16,6 +16,7 @@ P_OVERVIEW = "pages/1_总览.py"
 P_RECONCILE = "pages/2_对账中心.py"
 P_EXPLORE = "pages/3_差异探索.py"
 P_ACCEPTANCE = "pages/4_验收摘要.py"
+P_FINANCE_ADJUST = "pages/5_财务调账.py"
 P_DEV = "pages/11_开发者.py"
 P_SALARY_SUMMARY = "pages/算薪/1_汇总.py"
 P_SALARY_NEW_MEDIA = "pages/算薪/2_新媒体.py"
@@ -33,7 +34,11 @@ def build_navigation() -> dict[str, list[st.Page]]:
             st.Page(PAGES_DIR / "1_总览.py", title="总览", default=True, icon="📊"),
         ],
         "上传": [
+            st.Page(PAGES_DIR / "0_新月接入.py", title="新月接入", icon="📅"),
             st.Page(PAGES_DIR / "0_发薪上传.py", title="发薪上传", icon="📤"),
+        ],
+        "财务": [
+            st.Page(PAGES_DIR / "5_财务调账.py", title="财务调账", icon="✏️"),
         ],
         "对账": [
             st.Page(PAGES_DIR / "2_对账中心.py", title="对账中心"),

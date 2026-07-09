@@ -19,6 +19,8 @@ PERF_COL = "AB"  # 子表「绩效薪资」→ hub 整车绩效 W
 
 
 def load_new_media_performance_frame(loader: WorkbookLoader) -> pd.DataFrame:
+    if not loader.has_sheet(NEW_MEDIA_SHEET):
+        return pd.DataFrame(columns=[NAME_COL, PERF_COL])
     frame = loader.read_sheet_columns(
         NEW_MEDIA_SHEET,
         {NAME_COL: NAME_COL, PERF_COL: PERF_COL},

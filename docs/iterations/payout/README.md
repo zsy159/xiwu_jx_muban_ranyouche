@@ -2,7 +2,7 @@
 
 > 承接 Hub（`提成汇总`）之后的最终财务发薪输出。迭代 4 / 4+ 已实现三渠道；本文档汇总数据流与运行方式。
 
-**最后更新：** 2026-07-01
+**最后更新：** 2026-07-09
 
 ---
 
@@ -210,6 +210,8 @@ python -m unittest tests.test_compute_all -v
 
 ## 相关文档
 
+- [提成汇总-列级计算规则.md](../hub/提成汇总-列级计算规则.md) — **按 Hub 列**：F–P / W–AI 计算规则与底层表追溯（HubRuleEngine 重构后）
+- [发薪表-岗位取数与计算逻辑.md](./发薪表-岗位取数与计算逻辑.md) — **按发薪表列**：各岗位取数位置与计算逻辑
 - [提成汇总-底层表清单.md](./提成汇总-底层表清单.md) — Hub 生成所需底层 sheet 分类清单（跨月外推）
 - [iteration-4/README.md](../iteration-4/README.md) — XW 首版
 - [iteration-4-plus/README.md](../iteration-4-plus/README.md) — 直营店 / CS

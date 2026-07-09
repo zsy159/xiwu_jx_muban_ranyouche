@@ -13,6 +13,7 @@ from salary_pipeline.main import PAYOUT_CHANNELS, cmd_compute_all
 class ComputeAllTests(unittest.TestCase):
     def _args(self, *, reconcile: bool = False) -> argparse.Namespace:
         return argparse.Namespace(
+            month="2026-05",
             reconcile=reconcile,
             golden=None,
             sheet=None,
@@ -47,7 +48,7 @@ class ComputeAllTests(unittest.TestCase):
 
         pipelines: list[MagicMock] = []
 
-        def make_pipeline(channel: str, config_dir: object) -> MagicMock:
+        def make_pipeline(channel: str, config_dir: object, **kwargs: object) -> MagicMock:
             pipeline = MagicMock()
             pipeline.run.return_value = make_payout_result(channel)
             pipelines.append(pipeline)
@@ -92,7 +93,7 @@ class ComputeAllTests(unittest.TestCase):
             channel: Path(f"/tmp/{channel}.xlsx") for channel in PAYOUT_CHANNELS
         }
 
-        def make_pipeline(channel: str, config_dir: object) -> MagicMock:
+        def make_pipeline(channel: str, config_dir: object, **kwargs: object) -> MagicMock:
             pipeline = MagicMock()
             pipeline.run.return_value = {
                 "channel": channel,

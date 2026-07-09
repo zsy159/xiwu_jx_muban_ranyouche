@@ -1,0 +1,250 @@
+# 销售账套标准模板 — 参数表注册
+# tier_a_params = Hub/闭包必需；skeleton = 行键；payout_side_tables = 发薪边表；role_family_optional = 岗位族
+
+workbook_name_pattern: "销售账套-标准-{month}.xlsx"
+example_month: "2026-05"
+
+exception_sheet:
+  name: 例外登记表
+  columns:
+    - {id: store, label: 店别}
+    - {id: role, label: 职务}
+    - {id: name, label: 姓名}
+    - {id: column, label: 列名}
+    - {id: system_value, label: 系统值}
+    - {id: confirmed_value, label: 确认值}
+    - {id: delta, label: 差额}
+    - {id: reason, label: 原因}
+    - {id: approver, label: 审批人}
+
+readme_sheet:
+  name: README
+  title: 销售账套标准模板 — 填账规则
+
+skeleton:
+  label: 人员骨架（提成汇总行键）
+  sheets:
+    - name: 人员信息
+      source: skeleton
+      header_row: 1
+      key_labels: [店别, 职务, 姓名]
+      used_by: [summary_skeleton, 提成汇总 B–D 行键]
+      note: 无合并账套内「提成汇总」sheet 时，系统从此表读店别/职务/姓名
+
+tier_a_params:
+  tier: A
+  label: Tier A 必需参数表（Hub / 闭包）
+  sheets:
+    - name: 提成标准
+      source: closure
+      header_row: 1
+      key_cols: [C, D, E]
+      value_cols: [F, H]
+      key_labels: [部门, 销售渠道, 车型]
+      value_labels: [2026年标准, 特殊车型标准]
+      used_by: [绩效整理表 AG/AQ, Hub W/AF]
+
+    - name: 比对表
+      source: closure
+      header_row: 1
+      key_cols: [A, B, D, E]
+      value_labels: [系统部门, 指标汇总部门, 系统车种, 指标汇总车型]
+      used_by: [绩效整理表 AG/AH, Hub 单台绩效/整车超额]
+
+    - name: 销售任务及完成率
+      source: formula
+      header_row: 1
+      key_cols: [C]
+      value_cols: [F, Y, Z, AG]
+      key_labels: [姓名]
+      value_labels: [集客达成率, 考核量, 实际销量, 合并完成率]
+      used_by: [Hub F–P, 销售顾问 BA 乘数]
+      note: 可按姓名粒度填写；系统亦可重算
+
+    - name: 指标汇总
+      source: registry
+      header_row: 4
+      header_template_rows: 4
+      used_by: [Hub M–P 毛利, 算术加项]
+      note: manifest 必传；含公式格，上传读 data_only 结果
+
+    - name: 综合表
+      source: hub_adjustment
+      header_row: 4
+      key_cols: [B]
+      value_cols: [J, L]
+      key_labels: [姓名]
+      value_labels: [（已发放奖励）, 综合项]
+      used_by: [Hub AM/AP 调整列]
+
+    - name: 重功超期+活动
+      source: hub_adjustment
+      header_row: 3
+      key_cols: [E, Q]
+      value_cols: [N, X]
+      key_labels: [VIN号, 姓名]
+      value_labels: [销售追加奖励, 月度活动奖励]
+      used_by: [绩效整理表 AQ, Hub 月度活动列]
+      note: Hub 活动列名见 month.yaml hub.activity_column_name
+
+    - name: 上户提成
+      source: closure
+      header_row: 1
+      key_cols: [B]
+      value_cols: [C, H]
+      key_labels: [VIN码]
+      value_labels: [手续费, 提成金额]
+      used_by: [绩效整理表 AE/AN]
+
+    - name: 爱车保
+      source: closure
+      header_row: 1
+      key_cols: [F]
+      value_cols: [K, BA]
+      key_labels: [VIN]
+      value_labels: [产品名称, 爱车宝提成金额]
+      used_by: [绩效整理表 AD/AM]
+
+    - name: 置换服务
+      source: closure
+      header_row: 1
+      key_cols: [G]
+      value_cols: [BB]
+      key_labels: [VIN]
+      value_labels: [提成金额]
+      used_by: [绩效整理表 AS]
+
+    - name: 二手置换
+      source: closure
+      header_row: 1
+      key_cols: [T]
+      value_cols: [AE]
+      key_labels: [车架号]
+      value_labels: [合计]
+      used_by: [绩效整理表 AR]
+      sheet_alias: "二手置换 "
+
+    - name: 大客户
+      source: closure
+      header_row: 1
+      key_cols: [O]
+      value_cols: [R]
+      key_labels: [车架号]
+      value_labels: [销售提成]
+      used_by: [绩效整理表 AR]
+
+    - name: 延保提成
+      source: closure
+      header_row: 1
+      key_cols: [F]
+      value_cols: [BE]
+      key_labels: [VIN]
+      value_labels: [延保收入]
+      used_by: [绩效整理表 AF/AT]
+      note: 首行可能是子表头，系统读值时跳过
+
+    - name: 系统超额
+      source: closure
+      header_row: 1
+      key_cols: [W]
+      value_cols: [P]
+      key_labels: [VIN码]
+      value_labels: [合计超卖金额]
+      used_by: [闭包上下文 整车节约]
+
+    - name: 保客考核明细
+      source: registry
+      header_row: 1
+      used_by: [Hub AR 保客考核]
+
+    - name: 直营店交车
+      source: registry
+      header_row: 1
+      used_by: [Hub AQ 直营店交车奖励]
+
+payout_side_tables:
+  label: 发薪边表（HR / 财务维护）
+  note: 不参与提成汇总生成；XW/CS/直营店发薪表 SUMIF 取基本工资、代发放、扣款等
+  sheets:
+    - name: 西物基本
+      header_template_rows: 6
+      used_by: [XW提成-发 基本工资/社保/公积金]
+      channels: [xw]
+
+    - name: 超市基本
+      header_template_rows: 6
+      used_by: [CS提成-发 基本工资/社保/公积金]
+      channels: [cs]
+
+    - name: 直营店基本
+      header_template_rows: 6
+      used_by: [直营店提成-发 基本工资/社保/公积金]
+      channels: [direct_store]
+
+    - name: 银河A提成- 渠道+直营店
+      header_template_rows: 3
+      used_by: [XW/直营店 代发放 AH/AG]
+      channels: [xw, direct_store]
+
+    - name: 银河B直营店提成
+      header_template_rows: 3
+      used_by: [XW/直营店 代发放 AG/年终]
+      channels: [xw, direct_store]
+
+    - name: 车展奖励（并税）
+      header_template_rows: 2
+      used_by: [XW/CS 其它补贴 AJ]
+      channels: [xw, cs]
+      note: 布局因月而异；引擎 SUMIF 姓名列 L、金额列 V
+
+    - name: 超市公积金
+      header_row: 1
+      key_labels: [序号, 姓名, 公司承担, 个人承担, 合计]
+      used_by: [直营店/CS 公积金代扣]
+      channels: [direct_store, cs]
+
+    - name: 服装扣款明细
+      header_template_rows: 2
+      used_by: [直营店 其他扣款]
+      channels: [direct_store]
+
+role_family_optional:
+  tier: B
+  label: 岗位族可选参数表（当月有对应人员时再填）
+  sheets:
+    - name: 新媒体
+      header_row: 1
+      key_cols: [Y]
+      value_cols: [AB]
+      used_by: [Hub W 新媒体]
+
+    - name: 邀约专员提成
+      header_row: 1
+      key_cols: [C, AD]
+      value_cols: [AF]
+      used_by: [Hub W / AK 邀约]
+
+    - name: 客户部提成
+      header_row: 1
+      used_by: [Hub W/X/Y 客户专员]
+
+    - name: 直营店经理提成 (财务)
+      header_row: 1
+      value_cols: [R]
+      used_by: [Hub AK 直营店经理]
+
+    - name: 招聘
+      header_row: 1
+      value_cols: [S, T, V, W]
+      used_by: [Hub Z 招聘]
+
+    - name: 翼真考核
+      header_row: 1
+      key_cols: [C]
+      value_cols: [AC]
+      used_by: [翼真 AK]
+
+    - name: 按揭绩效
+      header_row: 2
+      header_template_rows: 3
+      used_by: [按揭内勤 Hub 加装绩效]

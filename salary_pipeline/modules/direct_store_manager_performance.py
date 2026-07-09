@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from salary_pipeline.calculators.direct_store_manager.extract import (
+    SHEET as DIRECT_STORE_MANAGER_SHEET,
     lookup_role_performance,
 )
 from salary_pipeline.calculators.direct_store_manager.registry import (
@@ -54,6 +55,14 @@ class DirectStoreManagerPerformanceModule(BaseCommissionModule):
             )
 
         loader = build_workbook_loader(context)
+        sheet = str(family.get("rules_sheet", DIRECT_STORE_MANAGER_SHEET))
+        sheet_available = loader.has_sheet(sheet)
+        if not sheet_available:
+            logger.warning(
+                "%s: sheet %r missing; overlay leaves direct store manager columns empty",
+                self.name,
+                sheet,
+            )
         rows: list[dict[str, Any]] = []
         for _, person in skeleton.iterrows():
             name = str(person["姓名"])
@@ -62,7 +71,7 @@ class DirectStoreManagerPerformanceModule(BaseCommissionModule):
                 continue
 
             hub_col = hub_column_for_role(role)
-            perf = lookup_role_performance(loader, name)
+            perf = lookup_role_performance(loader, name) if sheet_available else 0.0
             rows.append(
                 {
                     "店别": person["店别"],
@@ -94,7 +103,8 @@ class DirectStoreManagerPerformanceModule(BaseCommissionModule):
                 "family_id": FAMILY_ID,
                 "rules_sheet": family.get("rules_sheet"),
                 "algorithm": "store_block_with_attach_row",
-                "source_sheet": "直营店经理提成 (财务)",
+                "source_sheet": sheet,
+                "sheet_available": sheet_available,
                 "rows": len(metrics),
             },
         )

@@ -12,6 +12,7 @@ from openpyxl import load_workbook
 
 from salary_pipeline.ingestion_upload.file_intake import IntakeResult, SheetMatchStatus
 from salary_pipeline.ingestion_upload.manifest import resolve_sheet_alias
+from salary_pipeline.modules.base import PERSONNEL_FILENAME, PERSONNEL_SHEET
 from salary_pipeline.paths import PROJECT_ROOT, resolve_project_path
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,13 @@ SHEET_SOURCES_FILENAME = "sheet_sources.json"
 
 # Formula sheets kept out of the merged workbook (openpyxl corrupts cached values).
 # Hub F/G/H still read them via supplemental upload paths.
-HUB_SUPPLEMENTAL_SHEETS: tuple[str, ...] = ("销售任务及完成率",)
+HUB_SUPPLEMENTAL_SHEETS: tuple[str, ...] = (
+    "销售任务及完成率",
+    "按揭绩效",  # 按揭内勤 overlay（MortgageClerkPerformanceModule AF 列引用）
+)
+
+# Optional skeleton row keys — read via sheet_sources, not copied into merge base.
+SKELETON_SUPPLEMENTAL_SHEETS: tuple[str, ...] = (PERSONNEL_SHEET,)
 
 
 def _copy_sheet(source_ws, target_wb, sheet_name: str) -> None:
@@ -98,7 +105,7 @@ def plan_sheet_sources(
     sheet_sources: dict[str, Path] = {}
 
     for match in intake.matches:
-        if match.required.optional_note or match.status == SheetMatchStatus.MISSING:
+        if _skip_sheet_source_planning(match):
             continue
         manifest_name, source_path, resolved = _resolve_match_source(
             intake, match, conflict_resolutions
@@ -109,6 +116,20 @@ def plan_sheet_sources(
             sheet_sources[manifest_name] = source_path
 
     return sheet_sources
+
+
+def _skip_sheet_source_planning(match) -> bool:
+    """Sheets excluded from sheet_sources.json (formula notes only)."""
+    if match.status == SheetMatchStatus.MISSING:
+        return True
+    return match.required.optional_note
+
+
+def _skip_physical_merge(match) -> bool:
+    """Sheets not copied/renamed into the merged sales workbook."""
+    if match.status == SheetMatchStatus.MISSING:
+        return True
+    return match.required.optional_note or match.required.optional_skeleton
 
 
 def needs_openpyxl_merge(
@@ -124,7 +145,7 @@ def needs_openpyxl_merge(
     base_sheets = set(scan_sheets(intake.sales_workbook))
 
     for match in intake.matches:
-        if match.required.optional_note or match.status == SheetMatchStatus.MISSING:
+        if _skip_physical_merge(match):
             continue
         manifest_name, source_path, resolved = _resolve_match_source(
             intake, match, conflict_resolutions
@@ -160,10 +181,46 @@ def load_sheet_sources(path: Path | None) -> dict[str, Path]:
     if path is None or not path.exists():
         return {}
     raw = json.loads(path.read_text(encoding="utf-8"))
-    return {
-        sheet: resolve_project_path(rel)
-        for sheet, rel in raw.items()
-    }
+    resolved: dict[str, Path] = {}
+    for sheet, rel in raw.items():
+        target = resolve_project_path(rel)
+        if target.is_dir():
+            raise ValueError(
+                f"sheet_sources[{sheet!r}] points to a directory, not a file: {target}"
+            )
+        resolved[sheet] = target
+    return resolved
+
+
+def resolve_sheet_sources_path(
+    sales_workbook: Path,
+    *,
+    explicit: Path | None = None,
+) -> Path | None:
+    """Locate sheet_sources.json for a consolidated sales workbook."""
+    if explicit is not None and explicit.is_file():
+        return explicit.resolve()
+    base = Path(sales_workbook).resolve().parent
+    for candidate in (
+        base / SHEET_SOURCES_FILENAME,
+        base.parent / SHEET_SOURCES_FILENAME,
+    ):
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def load_sheet_sources_for_workbook(
+    sales_workbook: Path,
+    *,
+    explicit: Path | None = None,
+) -> dict[str, Path]:
+    """Load supplemental sheet paths from explicit path or adjacent sheet_sources.json."""
+    sources_path = resolve_sheet_sources_path(
+        sales_workbook,
+        explicit=explicit,
+    )
+    return load_sheet_sources(sources_path)
 
 
 def supplement_sheet_sources(
@@ -185,6 +242,22 @@ def supplement_sheet_sources(
         for candidate in (
             raw_dir / "uploads" / f"{sheet_name}.xlsx",
             raw_dir / ".staging" / "uploads" / f"{sheet_name}.xlsx",
+        ):
+            if candidate.is_file():
+                out[sheet_name] = candidate.resolve()
+                logger.info(
+                    "Supplemental sheet %s -> %s",
+                    sheet_name,
+                    candidate.name,
+                )
+                break
+
+    for sheet_name in SKELETON_SUPPLEMENTAL_SHEETS:
+        if sheet_name in out or sheet_name in base_sheets:
+            continue
+        for candidate in (
+            raw_dir / "uploads" / PERSONNEL_FILENAME,
+            raw_dir / ".staging" / "uploads" / PERSONNEL_FILENAME,
         ):
             if candidate.is_file():
                 out[sheet_name] = candidate.resolve()
@@ -261,7 +334,7 @@ def _build_with_openpyxl(
         wb.remove(wb["Sheet"])
 
     for match in intake.matches:
-        if match.required.optional_note or match.status == SheetMatchStatus.MISSING:
+        if _skip_physical_merge(match):
             continue
         manifest_name, source_path, resolved = _resolve_match_source(
             intake, match, conflict_resolutions

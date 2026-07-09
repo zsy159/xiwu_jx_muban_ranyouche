@@ -268,6 +268,11 @@ OVERLAY_KEY_ALIASES: dict[str, str] = {
     "sales-advisor": "sales-advisor",
     "sales_advisor": "sales-advisor",
     "salesadvisor": "sales-advisor",
+    # sales-supervisor merged into sales-advisor (2026-07-07); aliases kept
+    # pointing at the unified overlay for backward-compatible --only usage.
+    "sales-supervisor": "sales-advisor",
+    "sales_supervisor": "sales-advisor",
+    "salessupervisor": "sales-advisor",
     "new-media": "new-media",
     "new_media": "new-media",
     "newmedia": "new-media",

@@ -1,4 +1,4 @@
-"""销售顾问岗位族绩效 — Phase B 绩效整理表 + topology 业务规则写 Hub W–AI。"""
+"""销售顾问岗位族绩效 — Phase B 绩效整理表 + 声明式规则写 Hub W–AI。"""
 
 from __future__ import annotations
 
@@ -7,10 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from salary_pipeline.calculators.sales_advisor.extract import (
-    compute_for_advisor,
-    match_advisor_row,
-)
+from salary_pipeline.calculators.sales_advisor.extract import match_advisor_row
 from salary_pipeline.calculators.sales_advisor.registry import (
     hub_columns_for_gate,
     is_hub_linked,
@@ -18,7 +15,7 @@ from salary_pipeline.calculators.sales_advisor.registry import (
 )
 from salary_pipeline.config.hub_performance_loader import load_hub_performance_config
 from salary_pipeline.data_ingestion.data_loader import build_workbook_loader
-from salary_pipeline.paths import resolve_project_path
+from salary_pipeline.pipelines.hub_rule_engine import HubRuleEngine
 from salary_pipeline.modules.base import (
     SUMMARY_KEY_COLUMNS,
     BaseCommissionModule,
@@ -36,12 +33,15 @@ class SalesAdvisorPerformanceModule(BaseCommissionModule):
     形态 C：Phase B computed 绩效整理表 → Hub W–AI 显式算薪。
 
     - 读 ``computed_perf_frame``（PerformanceSheetModule 输出）
-    - 公式自 Hub topology 解析（SUMIF/SUMIFS × 完成率）
+    - 公式来自 HubRuleEngine 声明式规则（config/hub_column_rules.yaml），按
+      店别判定整车绩效乘数（门店块 ×BA / 个人 ×H），不再依赖 topology 行号回放
     - 仅 hub_linked 顾问写 overlay；子表全员见 销售提成标准
+    - 2026-07-07 起 ``match_advisor_row`` 同时覆盖销售主管/销售助理（用户要求
+      所有销售类岗位统一规则），三者共用同一 hub_column_rules 家族与本模块
     """
 
     name = "sales_advisor_performance"
-    roles = ["销售顾问"]
+    roles = ["销售顾问", "销售主管", "销售助理"]
 
     def run(self, context: dict[str, Any]) -> ModuleResult:
         hub_cfg = load_hub_performance_config()
@@ -68,12 +68,8 @@ class SalesAdvisorPerformanceModule(BaseCommissionModule):
 
         loader = build_workbook_loader(context)
         gate_cols = hub_columns_for_gate()
-        month_config = context.get("month_config", {})
-        perf_cfg = month_config.get("performance_sheet", {})
-        hub_cfg = month_config.get("hub", {})
-        topology_path = resolve_project_path(month_config["topology"]["sales"])
-        use_golden_perf = perf_cfg.get("use_golden_perf_sheet", True)
-        bootstrap_golden = hub_cfg.get("bootstrap_from_golden", False)
+        engine = HubRuleEngine()
+        rule_family = engine.role_families.get(FAMILY_ID, {})
 
         rows: list[dict[str, Any]] = []
         for _, person in skeleton.iterrows():
@@ -84,13 +80,15 @@ class SalesAdvisorPerformanceModule(BaseCommissionModule):
             if role is not None and not is_hub_linked(role):
                 continue
 
-            result = compute_for_advisor(
-                person,
-                perf_frame,
-                loader,
-                topology_path=topology_path,
-                use_golden_perf_sheet=use_golden_perf,
-                bootstrap_from_golden=bootstrap_golden,
+            rate = person.get("销量完成率")
+            h_rate = float(rate) if pd.notna(rate) else 0.0
+            hub_metrics = engine.compute_row(
+                name=name,
+                store=person.get("店别"),
+                h_rate=h_rate,
+                perf_frame=perf_frame,
+                family_cfg=rule_family,
+                loader=loader,
             )
             row_data: dict[str, Any] = {
                 "店别": person["店别"],
@@ -98,9 +96,9 @@ class SalesAdvisorPerformanceModule(BaseCommissionModule):
                 "姓名": name,
             }
             for col in gate_cols:
-                if col in result.hub_metrics:
-                    row_data[col] = result.hub_metrics[col]
-            for col, val in result.hub_metrics.items():
+                if col in hub_metrics:
+                    row_data[col] = hub_metrics[col]
+            for col, val in hub_metrics.items():
                 if col not in row_data:
                     row_data[col] = val
             rows.append(row_data)
@@ -127,7 +125,7 @@ class SalesAdvisorPerformanceModule(BaseCommissionModule):
             metadata={
                 "family_id": FAMILY_ID,
                 "rules_sheet": family.get("rules_sheet", "销售提成标准"),
-                "algorithm": "perf_sheet_sumif_with_completion_rate",
+                "algorithm": "hub_rule_engine",
                 "source": "computed_perf_frame",
                 "hub_linked_only": True,
                 "rows": len(metrics),

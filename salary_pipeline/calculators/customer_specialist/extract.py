@@ -106,7 +106,7 @@ def extract_role_inputs(loader: WorkbookLoader, role_name: str) -> CustomerSpeci
     role = get_role(role_name)
     if role is None:
         raise KeyError(role_name)
-    ws = loader._workbook()["客户部提成"]
+    ws = loader.worksheet("客户部提成")
     template = role["template"]
 
     if template == "left_line_items":
@@ -173,7 +173,7 @@ def lookup_golden_cells(loader: WorkbookLoader, role_name: str) -> dict[str, flo
     role = get_role(role_name)
     if not role:
         return {}
-    ws = loader._workbook()["客户部提成"]
+    ws = loader.worksheet("客户部提成")
     out: dict[str, float] = {}
     for label, ref in role.get("golden_cells", {}).items():
         if isinstance(ref, str):

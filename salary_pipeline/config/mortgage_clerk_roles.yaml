@@ -1,0 +1,10 @@
+# 按揭内勤 — Hub 加装绩效（Y）引用 按揭绩效 子表 AF 列
+
+sheet: 按揭绩效
+roles:
+  - name: 熊宇
+    hub_column: 加装绩效
+    source_cell: AF13
+  - name: 李彦林
+    hub_column: 加装绩效
+    source_cell: AF14

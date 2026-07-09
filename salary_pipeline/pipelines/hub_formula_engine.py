@@ -276,7 +276,8 @@ class HubFormulaEngine:
         )
         if self.warnings:
             logger.warning("Formula warnings (first 5): %s", self.warnings[:5])
-        return out.drop(columns=["_excel_row"], errors="ignore")
+        # Keep _excel_row for overlay modules (topology W×BA/H is keyed by golden row).
+        return out
 
     def _eval(self, formula: str, row: int, name: Any) -> float | None:
         formula = formula.strip()
@@ -638,18 +639,13 @@ class HubFormulaEngine:
             and not self._use_golden_perf_sheet
         ):
             return PERF_SHEET
-        names = self.loader._workbook().sheetnames
-        if sheet in names:
+        if self.loader.has_sheet(sheet):
             return sheet
         stripped = sheet.strip()
-        if stripped in names:
+        if stripped != sheet and self.loader.has_sheet(stripped):
             return stripped
-        if stripped == "二手置换" and USED_CAR_SHEET in names:
+        if stripped == "二手置换" and self.loader.has_sheet(USED_CAR_SHEET):
             return USED_CAR_SHEET
-        if stripped in self.loader.sheet_paths:
-            return stripped
-        if sheet in self.loader.sheet_paths:
-            return sheet
         raise KeyError(f"Worksheet {sheet} does not exist.")
 
     def _sheet_frame(self, sheet: str) -> pd.DataFrame:

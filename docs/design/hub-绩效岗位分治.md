@@ -12,7 +12,8 @@
 | 岗位族 | 状态 |
 |--------|------|
 | 新媒体 / 邀约专员 / 客户专员 / 直营店经理 / **招聘** | ✅ 已内化（`parity_gate: true`） |
-| 销售顾问 / 销售主管 | 引擎过渡（拓扑回放已达标，待明细层 Phase B） |
+| **销售顾问** | ✅ F–P 已迁 **HubMetricsRuleEngine**；W–AI 已迁 **HubRuleEngine**（`hub_column_rules.yaml`） |
+| 销售主管 / 销售助理 | 并入销售顾问 family，W–AI 与顾问同规则 |
 
 内化完成标志：登记 `hub_performance.yaml` → 实现 `modules/<族>_performance.py` → 测试与 `compute --reconcile` 通过后设 `parity_gate: true`。
 

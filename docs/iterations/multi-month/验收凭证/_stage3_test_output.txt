@@ -1,0 +1,212 @@
+test_eval_index_lookup_for_sample_row (test_aftersales_formula_engine.AftersalesFormulaEngineTests.test_eval_index_lookup_for_sample_row) ... ok
+test_index_term_regex_matches_basic_lookup (test_aftersales_formula_engine.AftersalesFormulaEngineTests.test_index_term_regex_matches_basic_lookup) ... ok
+test_sum_horizontal_range (test_aftersales_formula_engine.AftersalesFormulaEngineTests.test_sum_horizontal_range) ... ok
+test_tax_lookup_uses_ab_ac_table (test_aftersales_formula_engine.AftersalesFormulaEngineTests.test_tax_lookup_uses_ab_ac_table) ... ok
+test_export_then_highlight_invokes_formatting (test_commission_summary_formatting.CommissionSummaryFormattingTests.test_export_then_highlight_invokes_formatting) ... ok
+test_lightweight_highlight_skips_enrich_and_deferred (test_commission_summary_formatting.CommissionSummaryFormattingTests.test_lightweight_highlight_skips_enrich_and_deferred) ... ok
+test_non_frontline_columns_present_after_export (test_commission_summary_formatting.CommissionSummaryFormattingTests.test_non_frontline_columns_present_after_export) ... ok
+test_parity_highlight_mode_defaults_to_mismatch_only (test_commission_summary_formatting.CommissionSummaryFormattingTests.test_parity_highlight_mode_defaults_to_mismatch_only) ... ok
+test_resolve_highlight_golden_prefers_reference (test_commission_summary_formatting.CommissionSummaryFormattingTests.test_resolve_highlight_golden_prefers_reference) ... ok
+test_reconcile_all_stages (test_compute_all.ComputeAllTests.test_reconcile_all_stages) ... ok
+test_reconcile_failure_returns_nonzero (test_compute_all.ComputeAllTests.test_reconcile_failure_returns_nonzero) ... ok
+test_runs_hub_and_all_payout_channels (test_compute_all.ComputeAllTests.test_runs_hub_and_all_payout_channels) ... ok
+test_basic_pay_sumif (test_cs_payout.CsPayoutTests.test_basic_pay_sumif) ... ok
+test_cs_hub_sumif_sample (test_cs_payout.CsPayoutTests.test_cs_hub_sumif_sample) ... ok
+test_golden_rows_core_columns (test_cs_payout.CsPayoutTests.test_golden_rows_core_columns) ... FAIL
+test_tax_lookup_ba_bb (test_cs_payout.CsPayoutTests.test_tax_lookup_ba_bb)
+CS uses INDEX(BB, MATCH(D, BA)) — not XW's AZ/BA tax table. ... ok
+test_baoke_only_roles (test_customer_specialist_performance.CustomerSpecialistCalculatorTest.test_baoke_only_roles) ... ok
+test_hub_linked_roles (test_customer_specialist_performance.CustomerSpecialistCalculatorTest.test_hub_linked_roles) ... ok
+test_baoke_only_not_in_hub (test_customer_specialist_performance.CustomerSpecialistHubWaiTest.test_baoke_only_not_in_hub) ... ok
+test_hub_rows_match_golden (test_customer_specialist_performance.CustomerSpecialistHubWaiTest.test_hub_rows_match_golden) ... ERROR
+test_module_covers_three_hub_rows (test_customer_specialist_performance.CustomerSpecialistModuleTest.test_module_covers_three_hub_rows) ... ok
+test_extract_and_compute_all_five (test_direct_store_manager_performance.DirectStoreManagerCalculatorTest.test_extract_and_compute_all_five) ... ok
+test_lookup_golden_matches_r_column (test_direct_store_manager_performance.DirectStoreManagerCalculatorTest.test_lookup_golden_matches_r_column) ... ok
+test_module_covers_five_rows (test_direct_store_manager_performance.DirectStoreManagerModuleTest.test_module_covers_five_rows) ... ok
+test_overlay_matches_golden (test_direct_store_manager_performance.DirectStoreManagerModuleTest.test_overlay_matches_golden) ... ok
+test_basic_pay_sumif (test_direct_store_payout.DirectStorePayoutTests.test_basic_pay_sumif) ... ok
+test_galaxy_ag_for_zhu_jianbo (test_direct_store_payout.DirectStorePayoutTests.test_galaxy_ag_for_zhu_jianbo) ... ok
+test_store_managers_core_columns (test_direct_store_payout.DirectStorePayoutTests.test_store_managers_core_columns) ... ok
+test_commission_summary_export_formats_numeric_columns (test_excel_format.ExcelFormatTests.test_commission_summary_export_formats_numeric_columns) ... ok
+test_commission_summary_export_includes_template_semantic_columns (test_excel_format.ExcelFormatTests.test_commission_summary_export_includes_template_semantic_columns) ... ok
+test_format_writer_sheet_applies_two_decimal_display (test_excel_format.ExcelFormatTests.test_format_writer_sheet_applies_two_decimal_display) ... ok
+test_integer_headers_constant (test_excel_format.ExcelFormatTests.test_integer_headers_constant) ... ok
+test_cool_models_only_chaoshi (test_field_alignment.InviteFieldAlignmentTest.test_cool_models_only_chaoshi) ... ok
+test_invite_rate_bonus_not_chaoshi (test_field_alignment.InviteFieldAlignmentTest.test_invite_rate_bonus_not_chaoshi) ... ok
+test_invite_task_target_xiwu_aa (test_field_alignment.InviteFieldAlignmentTest.test_invite_task_target_xiwu_aa) ... ok
+test_matrix_has_three_templates (test_field_alignment.InviteFieldAlignmentTest.test_matrix_has_three_templates) ... ok
+test_matrix_wide_fields_as_columns (test_field_alignment.InviteFieldAlignmentTest.test_matrix_wide_fields_as_columns) ... ok
+test_pickup_400_all_templates (test_field_alignment.InviteFieldAlignmentTest.test_pickup_400_all_templates) ... ok
+test_roundtrip_inputs (test_field_alignment.InviteFieldAlignmentTest.test_roundtrip_inputs) ... ok
+test_task_penalty_not_xiwu (test_field_alignment.InviteFieldAlignmentTest.test_task_penalty_not_xiwu) ... ok
+test_dengfang_values_cover_all_line_items (test_field_alignment_customer_specialist.CustomerFieldAlignmentExtractTest.test_dengfang_values_cover_all_line_items) ... ok
+test_baoke_section_has_sixteen_fields (test_field_alignment_customer_specialist.CustomerFieldAlignmentTest.test_baoke_section_has_sixteen_fields) ... ok
+test_bizuo_field_count (test_field_alignment_customer_specialist.CustomerFieldAlignmentTest.test_bizuo_field_count) ... ok
+test_catalog_matches_excel_row_count (test_field_alignment_customer_specialist.CustomerFieldAlignmentTest.test_catalog_matches_excel_row_count) ... ok
+test_roundtrip_line_item_qty (test_field_alignment_customer_specialist.CustomerFieldAlignmentTest.test_roundtrip_line_item_qty) ... ok
+test_three_left_sections_injected (test_field_alignment_customer_specialist.CustomerFieldAlignmentTest.test_three_left_sections_injected) ... ok
+test_fans_only_live_anchor (test_field_alignment_new_media.NewMediaFieldAlignmentTest.test_fans_only_live_anchor) ... ok
+test_manual_only_performance_salary (test_field_alignment_new_media.NewMediaFieldAlignmentTest.test_manual_only_performance_salary) ... ok
+test_matrix_has_four_templates (test_field_alignment_new_media.NewMediaFieldAlignmentTest.test_matrix_has_four_templates) ... ok
+test_metric_pair_roundtrip (test_field_alignment_new_media.NewMediaFieldAlignmentTest.test_metric_pair_roundtrip) ... ok
+test_track_session_excess_checkbox_field (test_field_alignment_new_media.NewMediaFieldAlignmentTest.test_track_session_excess_checkbox_field) ... ok
+test_is_golden_erwang_channel (test_golden_perf_skips.GoldenPerfSkipsTests.test_is_golden_erwang_channel) ... ok
+test_puxi_erwang_adjustment_matches_vin (test_golden_perf_skips.GoldenPerfSkipsTests.test_puxi_erwang_adjustment_matches_vin) ... ok
+test_chen_ziyi_invite_ae_sumif (test_hub_formula_engine.TestHubFormulaEngine.test_chen_ziyi_invite_ae_sumif) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_deng_ge_product_manager_ak (test_hub_formula_engine.TestHubFormulaEngine.test_deng_ge_product_manager_ak)
+销售主管 邓戈：整车完成考核 = 产品经理提成核算!W9。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_deng_ge_supervisor_shanghu_double_sumif_chain (test_hub_formula_engine.TestHubFormulaEngine.test_deng_ge_supervisor_shanghu_double_sumif_chain)
+销售主管 邓戈：上户绩效 = SUMIF(AN)+SUMIF(AS)，AN=258 AS=0。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_han_baicheng_insurance_sumifs_plus_constant (test_hub_formula_engine.TestHubFormulaEngine.test_han_baicheng_insurance_sumifs_plus_constant)
+保险绩效 = SUMIFS(AJ)+600（韩柏成特例）。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_he_yu_shanghu_double_sumif_chain (test_hub_formula_engine.TestHubFormulaEngine.test_he_yu_shanghu_double_sumif_chain)
+上户绩效 = SUMIF(AN)+SUMIF(AS)；链式解析须计入第一段。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_m218_metrics_subtract (test_hub_formula_engine.TestHubFormulaEngine.test_m218_metrics_subtract) ... ok
+test_mou_chunliu_ref_sumif_row (test_hub_formula_engine.TestHubFormulaEngine.test_mou_chunliu_ref_sumif_row) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_sales_assistant_w_without_bootstrap (test_hub_formula_engine.TestHubFormulaEngine.test_sales_assistant_w_without_bootstrap)
+销售助理/内勤 W=SUMIFS(AG)×BA/H；bootstrap=false 时须惰性求值 BA/H。 ... 
+  test_sales_assistant_w_without_bootstrap (test_hub_formula_engine.TestHubFormulaEngine.test_sales_assistant_w_without_bootstrap) (name='王熙鸿')
+销售助理/内勤 W=SUMIFS(AG)×BA/H；bootstrap=false 时须惰性求值 BA/H。 ... FAIL
+test_sub_sum_minus_chain_ac1 (test_hub_formula_engine.TestHubFormulaEngine.test_sub_sum_minus_chain_ac1) ... ok
+test_tang_peng_row (test_hub_formula_engine.TestHubFormulaEngine.test_tang_peng_row) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_used_car_sheet_y185 (test_hub_formula_engine.TestHubFormulaEngine.test_used_car_sheet_y185) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_wang_qiaoqiao_vehicle_completion_ak (test_hub_formula_engine.TestHubFormulaEngine.test_wang_qiaoqiao_vehicle_completion_ak)
+内勤 王巧巧：整车完成考核 = G31*20（店块小计销量 × 20）。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_xiaotingzhong_new_media_sumif (test_hub_formula_engine.TestHubFormulaEngine.test_xiaotingzhong_new_media_sumif) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_xiong_jiewen_supervisor_shanghu_double_sumif_chain (test_hub_formula_engine.TestHubFormulaEngine.test_xiong_jiewen_supervisor_shanghu_double_sumif_chain)
+销售主管 熊杰文：上户绩效 = SUMIF(AN)+SUMIF(AS)，AN=428 AS=140。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_xue_xiangjian_yizhen_ak (test_hub_formula_engine.TestHubFormulaEngine.test_xue_xiangjian_yizhen_ak)
+销售总监 薛祥建：整车完成考核 = SUMIF(翼真考核!C:C,D132,翼真考核!AC:AC)。 ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_zhong_xiaoli_uses_sum_block (test_hub_formula_engine.TestHubFormulaEngine.test_zhong_xiaoli_uses_sum_block) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_zhou_xiaohong_recruit_sumif (test_hub_formula_engine.TestHubFormulaEngine.test_zhou_xiaohong_recruit_sumif) ... Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+ok
+test_all_payout_letters_from_computed (test_hub_frame_loader.HubFrameLoaderTest.test_all_payout_letters_from_computed) ... ok
+test_computed_only_does_not_use_golden_w (test_hub_frame_loader.HubFrameLoaderTest.test_computed_only_does_not_use_golden_w) ... ok
+test_computed_only_frame_uses_computed_w_x (test_hub_frame_loader.HubFrameLoaderTest.test_computed_only_frame_uses_computed_w_x) ... ok
+test_detect_data_start_row_computed_with_legend (test_hub_frame_loader.HubFrameLoaderTest.test_detect_data_start_row_computed_with_legend) ... ok
+test_detect_data_start_row_golden (test_hub_frame_loader.HubFrameLoaderTest.test_detect_data_start_row_golden) ... ok
+test_missing_computed_returns_empty_numeric_columns (test_hub_frame_loader.HubFrameLoaderTest.test_missing_computed_returns_empty_numeric_columns) ... Computed hub /nonexistent/hub.xlsx missing; payout SUMIF numeric columns will be empty (D-column skeleton from 燃油车-2026年05月西物超市销售提成(终)(1).xlsx)
+ok
+test_read_hub_columns_has_d_and_w (test_hub_frame_loader.HubFrameLoaderTest.test_read_hub_columns_has_d_and_w) ... ok
+test_bundle_has_gated_performance_section (test_hub_parity_bundle.HubParityBundleTest.test_bundle_has_gated_performance_section) ... FAIL
+test_bundle_has_performance_section (test_hub_parity_bundle.HubParityBundleTest.test_bundle_has_performance_section) ... FAIL
+test_extract_and_compute_all_eight (test_invite_specialist_performance.InviteSpecialistCalculatorTest.test_extract_and_compute_all_eight) ... ok
+test_lookup_zhou_siyu (test_invite_specialist_performance.InviteSpecialistModuleTest.test_lookup_zhou_siyu) ... ok
+test_module_covers_nine_rows (test_invite_specialist_performance.InviteSpecialistModuleTest.test_module_covers_nine_rows) ... ok
+test_overlay_matches_golden_hub_columns (test_invite_specialist_performance.InviteSpecialistModuleTest.test_overlay_matches_golden_hub_columns) ... ok
+test_if_ladder (test_lookup_ops.TestLookupOps.test_if_ladder) ... ok
+test_lookup_match_index (test_lookup_ops.TestLookupOps.test_lookup_match_index) ... ok
+test_sumifs_by_keys (test_lookup_ops.TestLookupOps.test_sumifs_by_keys) ... ok
+test_grouped_header_colspan (test_matrix_view.GroupedMatrixHtmlTest.test_grouped_header_colspan) ... ok
+test_iframe_height_scales_with_rows (test_matrix_view.GroupedMatrixHtmlTest.test_iframe_height_scales_with_rows) ... ok
+test_compute_reconcile_null_golden_skips (test_multi_month_cli.MultiMonthCliTest.test_compute_reconcile_null_golden_skips) ... ok
+test_default_month_from_registry (test_multi_month_cli.MultiMonthCliTest.test_default_month_from_registry) ... ok
+test_has_golden_workbook_null (test_multi_month_cli.MultiMonthCliTest.test_has_golden_workbook_null) ... ok
+test_load_month_config_for_registered_months (test_multi_month_cli.MultiMonthCliTest.test_load_month_config_for_registered_months) ... ok
+test_onboard_inherit_topology_writes_null_golden (test_multi_month_cli.MultiMonthCliTest.test_onboard_inherit_topology_writes_null_golden) ... ok
+test_onboard_mutually_exclusive_flags (test_multi_month_cli.MultiMonthCliTest.test_onboard_mutually_exclusive_flags) ... ok
+test_onboard_requires_topology_mode (test_multi_month_cli.MultiMonthCliTest.test_onboard_requires_topology_mode) ... ok
+test_pipeline_month_config_injection (test_multi_month_cli.MultiMonthCliTest.test_pipeline_month_config_injection) ... ok
+test_reconcile_null_golden_skips (test_multi_month_cli.MultiMonthCliTest.test_reconcile_null_golden_skips) ... ok
+test_unknown_month_raises_system_exit (test_multi_month_cli.MultiMonthCliTest.test_unknown_month_raises_system_exit) ... ok
+test_write_month_config_no_golden (test_multi_month_cli.MultiMonthCliTest.test_write_month_config_no_golden) ... ok
+test_write_month_config_uses_template (test_multi_month_cli.MultiMonthCliTest.test_write_month_config_uses_template) ... ok
+test_extract_and_compute_all_seven (test_new_media_calculator.NewMediaCalculatorTest.test_extract_and_compute_all_seven) ... ok
+test_lookup_golden_ab (test_new_media_calculator.NewMediaCalculatorTest.test_lookup_golden_ab) ... ok
+test_lookup_xiaotingzhong (test_new_media_performance.NewMediaPerformanceModuleTest.test_lookup_xiaotingzhong) ... ok
+test_module_covers_seven_sales_rows (test_new_media_performance.NewMediaPerformanceModuleTest.test_module_covers_seven_sales_rows) ... ok
+test_overlay_matches_golden_w_column (test_new_media_performance.NewMediaPerformanceModuleTest.test_overlay_matches_golden_w_column) ... ok
+test_bootstrap_is_noop (test_non_frontline_columns.TestNonFrontlineBootstrap.test_bootstrap_is_noop) ... ok
+test_advisor_not_non_frontline (test_non_frontline_columns.TestNonFrontlineClassification.test_advisor_not_non_frontline) ... ok
+test_all_semantic_columns_includes_support_fields (test_non_frontline_columns.TestNonFrontlineClassification.test_all_semantic_columns_includes_support_fields) ... ok
+test_management_shops (test_non_frontline_columns.TestNonFrontlineClassification.test_management_shops) ... ok
+test_store_sales_director_not_non_frontline (test_non_frontline_columns.TestNonFrontlineClassification.test_store_sales_director_not_non_frontline) ... ok
+test_support_shops (test_non_frontline_columns.TestNonFrontlineClassification.test_support_shops) ... ok
+test_copies_hub_values_for_management_rows_only (test_non_frontline_columns.TestNonFrontlineColumns.test_copies_hub_values_for_management_rows_only) ... ok
+test_copies_support_department_metrics (test_non_frontline_columns.TestNonFrontlineColumns.test_copies_support_department_metrics) ... ok
+test_frontline_physical_columns_unchanged (test_non_frontline_columns.TestNonFrontlineColumns.test_frontline_physical_columns_unchanged) ... ok
+test_management_physical_maps_to_semantic_for_highlight (test_non_frontline_columns.TestNonFrontlineHighlightMapping.test_management_physical_maps_to_semantic_for_highlight) ... ok
+test_acceptance_markdown (test_observability_loaders.ObservabilityLoadersTest.test_acceptance_markdown) ... ok
+test_anchor_snapshots_hub (test_observability_loaders.ObservabilityLoadersTest.test_anchor_snapshots_hub) ... ok
+test_discover_months_includes_2026_05 (test_observability_loaders.ObservabilityLoadersTest.test_discover_months_includes_2026_05) ... ok
+test_find_latest_hub_report (test_observability_loaders.ObservabilityLoadersTest.test_find_latest_hub_report) ... ok
+test_load_month_config_for_default_month (test_observability_loaders.ObservabilityLoadersTest.test_load_month_config_for_default_month) ... ok
+test_cap_applied (test_ops.TestRatioWithCap.test_cap_applied) ... ok
+test_series (test_ops.TestRatioWithCap.test_series) ... ok
+test_zero_denominator (test_ops.TestRatioWithCap.test_zero_denominator) ... ok
+test_scalar_criteria (test_ops.TestSumifByKey.test_scalar_criteria) ... ok
+test_series_criteria (test_ops.TestSumifByKey.test_series_criteria) ... ok
+test_collect_merges_registry_over_topology (test_parity_annotations.ParityAnnotationTests.test_collect_merges_registry_over_topology) ... ok
+test_comment_attached_to_correct_cell (test_parity_annotations.ParityAnnotationTests.test_comment_attached_to_correct_cell) ... ok
+test_deferred_cells_excluded_from_annotations (test_parity_annotations.ParityAnnotationTests.test_deferred_cells_excluded_from_annotations) ... ok
+test_enrich_cell_mismatches_attaches_root_cause (test_parity_annotations.ParityAnnotationTests.test_enrich_cell_mismatches_attaches_root_cause) ... ok
+test_keep_registry_annotation_when_parity_values_match (test_parity_annotations.ParityAnnotationTests.test_keep_registry_annotation_when_parity_values_match) ... ok
+test_load_registry_includes_zhaosifan (test_parity_annotations.ParityAnnotationTests.test_load_registry_includes_zhaosifan) ... ok
+test_lookup_liubo_jiazhuange_ref_root_cause (test_parity_annotations.ParityAnnotationTests.test_lookup_liubo_jiazhuange_ref_root_cause) ... ok
+test_manual_formula_deferred_excluded_from_annotations (test_parity_annotations.ParityAnnotationTests.test_manual_formula_deferred_excluded_from_annotations) ... ok
+test_skip_topology_annotation_when_parity_values_match (test_parity_annotations.ParityAnnotationTests.test_skip_topology_annotation_when_parity_values_match) ... ok
+test_topology_ref_kept_when_hub_row_name_matches (test_parity_annotations.ParityAnnotationTests.test_topology_ref_kept_when_hub_row_name_matches) ... ok
+test_topology_ref_skipped_when_hub_row_name_mismatch (test_parity_annotations.ParityAnnotationTests.test_topology_ref_skipped_when_hub_row_name_mismatch)
+Stale hub_excel_row must not attribute #REF! on another person's row. ... ok
+test_add_commission_summary_color_legend_inserts_row (test_parity_highlight.ColorLegendTests.test_add_commission_summary_color_legend_inserts_row) ... ok
+test_collect_manual_formula_cells_from_golden_workbook (test_parity_highlight.ManualFormulaDetectionTests.test_collect_manual_formula_cells_from_golden_workbook) ... ok
+test_highlight_manual_formula_cells_blue_with_comment (test_parity_highlight.ManualFormulaDetectionTests.test_highlight_manual_formula_cells_blue_with_comment) ... ok
+test_is_manual_formula_adjustment (test_parity_highlight.ManualFormulaDetectionTests.test_is_manual_formula_adjustment) ... ok
+test_is_pure_direct_fill_formula (test_parity_highlight.ManualFormulaDetectionTests.test_is_pure_direct_fill_formula) ... ok
+test_parity_mismatch_targets_semantic_column (test_parity_highlight.NonFrontlineHighlightTests.test_parity_mismatch_targets_semantic_column) ... ok
+test_static_highlight_follows_semantic_column_after_migration (test_parity_highlight.NonFrontlineHighlightTests.test_static_highlight_follows_semantic_column_after_migration) ... ok
+test_cell_mismatch_join_dict (test_parity_highlight.ParityHighlightTests.test_cell_mismatch_join_dict) ... ok
+test_collect_and_highlight_mismatch_cells (test_parity_highlight.ParityHighlightTests.test_collect_and_highlight_mismatch_cells) ... ok
+test_collect_static_fill_cells_from_golden_workbook (test_parity_highlight.ParityHighlightTests.test_collect_static_fill_cells_from_golden_workbook)
+Topology omits formula-less cells; golden workbook is the source of truth. ... ok
+test_collect_static_includes_pure_arith_and_non_frontline_columns (test_parity_highlight.ParityHighlightTests.test_collect_static_includes_pure_arith_and_non_frontline_columns) ... ok
+test_deferred_comment_includes_yaml_reason (test_parity_highlight.ParityHighlightTests.test_deferred_comment_includes_yaml_reason) ... ok
+test_deferred_fill_wins_over_mismatch (test_parity_highlight.ParityHighlightTests.test_deferred_fill_wins_over_mismatch)
+Deferred applied after mismatch; manual color takes precedence. ... ok
+test_deferred_wins_over_static_for_same_cell (test_parity_highlight.ParityHighlightTests.test_deferred_wins_over_static_for_same_cell)
+wa_parity_deferred takes blue fill when cell is also a golden static fill. ... ok
+test_erwang_blank_ah_skip_for_hub_permission_column (test_parity_highlight.ParityHighlightTests.test_erwang_blank_ah_skip_for_hub_permission_column)
+Golden D 二网 → AH blank; computed AH explains Hub 权限结余绩效 diff. ... ok
+test_erwang_skip_does_not_apply_without_adjustment (test_parity_highlight.ParityHighlightTests.test_erwang_skip_does_not_apply_without_adjustment) ... ok
+test_highlight_deferred_cells_blue_fill_and_comment (test_parity_highlight.ParityHighlightTests.test_highlight_deferred_cells_blue_fill_and_comment) ... ok
+test_highlight_deferred_cells_by_name_and_role (test_parity_highlight.ParityHighlightTests.test_highlight_deferred_cells_by_name_and_role)
+手工录入格按 姓名+职务 高亮，不依赖 店别。 ... ok
+test_highlight_mismatch_with_root_cause_comment (test_parity_highlight.ParityHighlightTests.test_highlight_mismatch_with_root_cause_comment) ... ok
+test_highlight_static_cells_gray_fill_and_comment (test_parity_highlight.ParityHighlightTests.test_highlight_static_cells_gray_fill_and_comment) ... ok
+test_mismatch_comment_includes_root_cause (test_parity_highlight.ParityHighlightTests.test_mismatch_comment_includes_root_cause) ... ok
+test_pure_arith_static_gray_not_blue_on_highlight (test_parity_highlight.ParityHighlightTests.test_pure_arith_static_gray_not_blue_on_highlight) ... ok
+test_static_fill_wins_over_mismatch (test_parity_highlight.ParityHighlightTests.test_static_fill_wins_over_mismatch) ... ok
+test_sumifs_formula_not_marked_static (test_parity_highlight.ParityHighlightTests.test_sumifs_formula_not_marked_static) ... ok
+test_wa_parity_deferred_cells_not_collected (test_parity_highlight.ParityHighlightTests.test_wa_parity_deferred_cells_not_collected) ... ok
+test_compare_files_after_legend_insert (test_parity_highlight.ReconcileAfterLegendTests.test_compare_files_after_legend_insert) ... ok
+test_apply_payout_highlighting_inserts_legend_and_marks_mismatch (test_payout_highlight.PayoutHighlightTests.test_apply_payout_highlighting_inserts_legend_and_marks_mismatch) ... ok
+test_apply_payout_highlighting_marks_permission_balance_mismatch (test_payout_highlight.PayoutHighlightTests.test_apply_payout_highlighting_marks_permission_balance_mismatch) ... ok
+test_collect_payout_mismatches_from_files (test_payout_highlight.PayoutHighlightTests.test_collect_payout_mismatches_from_files) ... ok
+test_highlight_mismatch_cells_with_comments (test_payout_highlight.PayoutHighlightTests.test_highlight_mismatch_cells_with_comments) ... ok
+test_read_computed_payout_adjusts_for_legend_row (test_payout_highlight.PayoutHighlightTests.test_read_computed_payout_adjusts_for_legend_row) ... ok
+test_resolve_payout_compare_columns_includes_extended_metrics (test_payout_highlight.PayoutHighlightTests.test_resolve_payout_compare_columns_includes_extended_metrics) ... ok
+test_advisor_sumif_aj_he_yu (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_advisor_sumif_aj_he_yu) ... ok
+test_advisor_sumif_gate_slice_2 (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_advisor_sumif_gate_slice_2)
+49 可比销售顾问：SUMIF(P, 姓名, col) 与金标准绩效整理表一致。 ... ok
+test_advisor_sumif_gate_slice_3 (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_advisor_sumif_gate_slice_3) ... ok
+test_aggregate_by_advisor_matches_sumif (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_aggregate_by_advisor_matches_sumif) ... ok
+test_build_slice_1_row_count (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_build_slice_1_row_count) ... ok
+test_build_slice_2_row_count (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_build_slice_2_row_count) ... ok
+test_build_slice_3_row_count (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_build_slice_3_row_count) ... ok
+test_build_slice_4_row_count (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_build_slice_4_row_count) ... ok
+test_chongzhou_advisor_decoration_perf (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_chongzhou_advisor_decoration_perf)
+崇州顾问加装绩效 Hub 汇总与金标准一致（AI 闭包修复回归）。 ... 

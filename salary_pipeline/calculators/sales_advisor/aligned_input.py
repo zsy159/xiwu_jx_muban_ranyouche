@@ -23,7 +23,11 @@ from salary_pipeline.calculators.sales_advisor.types import (
     AdvisorPerformanceResult,
     HubColumnFormula,
 )
-from salary_pipeline.data_ingestion.data_loader import WorkbookLoader, normalize_name
+from salary_pipeline.data_ingestion.data_loader import (
+    WorkbookLoader,
+    lookup_combined_completion_rate,
+    normalize_name,
+)
 
 # 对账门槛六项（hub_performance.yaml parity_gate）
 GATE_HUB_COLUMNS = (
@@ -115,6 +119,13 @@ class AdvisorAlignedResult:
 
 
 def detect_template(excel_row: int) -> str:
+    """Topology 行号回放判定模板（reconcile / 字段拉通 GUI 专用，非生产路径）。
+
+    生产路径（SalesAdvisorPerformanceModule）改用
+    ``hub_rule_engine.resolve_sales_advisor_template``（按店别 + 姓名覆盖），
+    不依赖金标准行号；行号回放对行号漂移（人员调店/排班变化）不健壮，仅保留
+    用于 topology reconcile 对比与手工字段拉通编辑器。
+    """
     specs = load_row_specs(excel_row)
     vehicle = specs.get("整车绩效")
     if vehicle and vehicle.multiply_ref and vehicle.multiply_ref.upper().startswith("BA"):
@@ -128,6 +139,7 @@ def detect_template(excel_row: int) -> str:
 def _resolve_multiplier_aligned(
     ref: str | None,
     *,
+    advisor_name: str,
     excel_row: int,
     aligned: AdvisorAlignedInput,
     loader: WorkbookLoader,
@@ -142,9 +154,9 @@ def _resolve_multiplier_aligned(
         val = loader.read_cell_value(HUB_SHEET, ref)
         return _num(val) if val is not None else aligned.sales_completion_rate
     if ref.startswith("BA"):
-        val = loader.read_cell_value(HUB_SHEET, ref)
-        if val is not None:
-            return _num(val)
+        rate = lookup_combined_completion_rate(loader, advisor_name)
+        if rate is not None:
+            return rate
         return aligned.store_completion_rate
     val = loader.read_cell_value(HUB_SHEET, ref)
     return _num(val)
@@ -162,6 +174,7 @@ def eval_hub_column_aligned(
         base = sum(aligned.perf_sum(col) for col in spec.perf_columns)
         rate = _resolve_multiplier_aligned(
             spec.multiply_ref,
+            advisor_name=advisor_name,
             excel_row=excel_row,
             aligned=aligned,
             loader=loader,
@@ -278,9 +291,9 @@ def extract_aligned_inputs(
         perf_at_sum=_sum_perf_column(perf, "AT", name),
     )
     if template == "store_ba":
-        ba_val = loader.read_cell_value(HUB_SHEET, f"BA{excel_row}")
-        if ba_val is not None:
-            aligned.store_completion_rate = _num(ba_val)
+        ba_rate = lookup_combined_completion_rate(loader, name)
+        if ba_rate is not None:
+            aligned.store_completion_rate = ba_rate
 
     specs = load_row_specs(excel_row)
     ins = specs.get("保险绩效")

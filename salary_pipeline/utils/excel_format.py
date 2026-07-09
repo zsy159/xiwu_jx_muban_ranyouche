@@ -214,6 +214,22 @@ def _legend_row_present(worksheet: Worksheet, row: int) -> bool:
     return False
 
 
+def commission_summary_legend_present(
+    workbook_path: Path,
+    sheet_name: str,
+    *,
+    insert_at_row: int = 2,
+) -> bool:
+    """True when reconcile color legend row already exists in the export."""
+    wb = load_workbook(workbook_path, read_only=True)
+    try:
+        if sheet_name not in wb.sheetnames:
+            return False
+        return _legend_row_present(wb[sheet_name], insert_at_row)
+    finally:
+        wb.close()
+
+
 def add_commission_summary_color_legend(
     workbook_path: Path,
     sheet_name: str,
@@ -249,8 +265,9 @@ def highlight_commission_summary_mismatches(
     join_keys: list[str],
     compare_columns: Iterable[str],
     *,
-    header_row: int = 2,
-    data_start_row: int = 3,
+    header_row: int = 3,
+    data_start_row: int = 4,
+    write_comments: bool = True,
 ) -> int:
     """Highlight parity mismatch cells in an exported 提成汇总 workbook."""
     mismatch_list = list(mismatches)
@@ -288,7 +305,8 @@ def highlight_commission_summary_mismatches(
             continue
         cell = ws.cell(row=row_idx, column=col_idx)
         cell.fill = PARITY_MISMATCH_FILL
-        cell.comment = Comment(_mismatch_comment(mismatch), "对账")
+        if write_comments:
+            cell.comment = Comment(_mismatch_comment(mismatch), "对账")
         highlighted += 1
 
     wb.save(workbook_path)
@@ -303,8 +321,8 @@ def highlight_commission_summary_deferred_cells(
     static_cells: dict[tuple[str, str], frozenset[str]] | None = None,
     deferred_reasons: dict[str, dict[str, str]] | None = None,
     role_title: str = "销售顾问",
-    header_row: int = 2,
-    data_start_row: int = 3,
+    header_row: int = 3,
+    data_start_row: int = 4,
     static_comment: str = STATIC_FILL_COMMENT,
     deferred_comment: str = MANUAL_DEFERRED_FILL_COMMENT,
 ) -> int:

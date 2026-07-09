@@ -17,13 +17,21 @@ from salary_pipeline.app._shared import init_session_state, render_sidebar
 from salary_pipeline.ingestion_upload.file_intake import (
     IntakeResult,
     SheetMatchStatus,
+    STREAMLIT_UPLOAD_ACCEPT,
     discover_local_raw_workbooks,
+    display_match_icon,
     display_match_status,
+    format_upload_size,
     intake_local_raw,
     intake_uploads,
+    pairs_from_streamlit_files,
     preferred_conflict_source_index,
 )
-from salary_pipeline.ingestion_upload.manifest import group_manifest_by_family
+from salary_pipeline.ingestion_upload.manifest import (
+    FAMILY_SALES,
+    group_manifest_by_family,
+    is_mandatory_input,
+)
 from salary_pipeline.ingestion_upload.overrides import (
     apply_overrides,
     load_overrides,
@@ -32,7 +40,10 @@ from salary_pipeline.ingestion_upload.overrides import (
 )
 from salary_pipeline.pipelines.non_frontline_columns import non_frontline_preview_columns
 from salary_pipeline.ingestion_upload.promote import promote_staging
-from salary_pipeline.ingestion_upload.sheet_merge import build_consolidated_workbook
+from salary_pipeline.ingestion_upload.sheet_merge import (
+    build_consolidated_workbook,
+    resolve_sheet_sources_path,
+)
 from salary_pipeline.ingestion_upload.topology import (
     extract_sales_topology,
     topology_is_current,
@@ -48,7 +59,7 @@ from salary_pipeline.ingestion_upload.trial_run import (
     inspect_trial_cache,
     run_trial_compute,
 )
-from salary_pipeline.ingestion_upload.month_config import write_month_config
+from salary_pipeline.ingestion_upload.month_config import build_month_config_dict
 from salary_pipeline.paths import PROJECT_ROOT, raw_month_dir
 
 st.set_page_config(page_title="发薪上传", layout="wide")
@@ -116,6 +127,8 @@ def _ensure_consolidated_and_topology(
         )
         consolidated = out
         st.session_state.consolidated_path = out
+    elif intake.sheet_sources_path is None:
+        intake.sheet_sources_path = resolve_sheet_sources_path(consolidated)
 
     topo_str = topology_rel or ""
     if topo_str and topology_is_current(consolidated, topo_str):
@@ -133,21 +146,19 @@ def _preview_trial_cache_hint(upload_month: str, topology_rel: str | None) -> st
     if not topology_rel:
         return f"首次全量约 {ESTIMATED_FULL_MINUTES} 分钟"
     try:
-        write_month_config(
+        consolidated = st.session_state.consolidated_path
+        if consolidated is not None and consolidated.exists():
+            sales_workbook = str(consolidated.relative_to(PROJECT_ROOT))
+        else:
+            sales_workbook = (
+                f"output/{upload_month}/.staging/销售账套-合并-{upload_month}.xlsx"
+            )
+        cfg = build_month_config_dict(
             upload_month,
-            sales_workbook=f"output/{upload_month}/.staging/placeholder.xlsx",
+            sales_workbook=sales_workbook,
             sales_topology=topology_rel,
             staging=True,
         )
-        from salary_pipeline.ingestion_upload.month_config import (
-            load_written_month_config,
-        )
-
-        cfg = load_written_month_config(upload_month)
-        if st.session_state.consolidated_path and st.session_state.consolidated_path.exists():
-            cfg["workbooks"]["sales"] = str(
-                st.session_state.consolidated_path.relative_to(PROJECT_ROOT)
-            )
         status = inspect_trial_cache(cfg)
         return status.timing_hint()
     except Exception:
@@ -274,15 +285,15 @@ with col_m2:
     )
 
 uploaded = st.file_uploader(
-    "选择 Excel 文件",
-    type=["xlsx", "zip"],
+    "选择 Excel / ZIP 文件",
+    type=STREAMLIT_UPLOAD_ACCEPT,
     accept_multiple_files=True,
     help="单文件 ≤80 MB，合计 ≤200 MB",
 )
 
 if uploaded and st.button("解析上传并匹配工作表", type="primary"):
     with st.spinner("正在校验并扫描工作表…"):
-        pairs = [(f.name, f.getvalue()) for f in uploaded]
+        pairs = pairs_from_streamlit_files(uploaded)
         intake = intake_uploads(upload_month, pairs)
         _reset_upload_flow()
         st.session_state.upload_intake = intake
@@ -313,7 +324,7 @@ with st.expander("从本地账套模拟导入", expanded=False):
             _reset_upload_flow()
             st.session_state.upload_intake = intake
             if not intake.errors:
-                required = [m for m in intake.matches if not m.required.optional_note]
+                required = [m for m in intake.matches if is_mandatory_input(m.required)]
                 ready = sum(
                     1
                     for m in required
@@ -356,9 +367,23 @@ if intake is not None:
             st.session_state.conflict_resolutions = resolutions
 
         st.subheader("底层数据就绪清单")
+        if intake.uploads:
+            st.caption("已解析上传文件")
+            upload_rows = [
+                {
+                    "文件名": uf.filename,
+                    "大小": format_upload_size(uf.size_bytes),
+                    "工作表": "、".join(uf.sheet_names) if uf.sheet_names else "—",
+                }
+                for uf in intake.uploads
+            ]
+            st.dataframe(pd.DataFrame(upload_rows), hide_index=True, use_container_width=True)
         match_by_name = {m.required.name: m for m in intake.matches}
         for family_label, sheets in group_manifest_by_family():
-            st.markdown(f"**{family_label}**")
+            if family_label == FAMILY_SALES:
+                st.markdown(f"**{family_label}**（试算必需）")
+            else:
+                st.markdown(f"**{family_label}**（岗位族专用 · 可选，缺失仅警告）")
             rows = []
             for sheet in sheets:
                 match = match_by_name.get(sheet.name)
@@ -367,11 +392,17 @@ if intake is not None:
                 display_status, display_sources = display_match_status(
                     match, resolutions
                 )
-                icon = _STATUS_ICON.get(display_status, "•")
+                icon = display_match_icon(match, resolutions)
                 source = "、".join(display_sources) if display_sources else "—"
                 note = ""
                 if sheet.optional_note:
                     note = "（公式表，非必需输入）"
+                elif sheet.optional_skeleton:
+                    note = "（人员骨架，可选；提供店别/职务/姓名行键）"
+                elif sheet.optional_role_family:
+                    note = "（岗位族专用，可选；缺失不阻断试算）"
+                elif sheet.optional_input:
+                    note = "（管理岗拓扑回放，可选）"
                 roles = "、".join(sheet.families)
                 rows.append(
                     {
@@ -379,6 +410,7 @@ if intake is not None:
                         "工作表": sheet.name + note,
                         "岗位族": roles,
                         "来源文件": source,
+                        "说明": match.detail or "—",
                         "header_row": sheet.header_row,
                     }
                 )
@@ -421,7 +453,7 @@ if intake is not None:
             )
 
         topology_rel: str | None = st.session_state.topology_rel
-        if ready:
+        if ready and not trial_running:
             st.caption(_preview_trial_cache_hint(upload_month, topology_rel))
 
         if not ready and blockers:
@@ -614,17 +646,32 @@ if intake is not None:
                     mime="application/zip",
                 )
 
-with st.expander("必需底层数据表说明"):
+with st.expander("底层数据表说明（必需 / 可选）"):
     for family_label, sheets in group_manifest_by_family():
-        st.markdown(f"**{family_label}**")
+        if family_label == FAMILY_SALES:
+            st.markdown(f"**{family_label}**（试算必需）")
+        else:
+            st.markdown(f"**{family_label}**（岗位族专用 · 可选）")
         for sheet in sheets:
             roles = "、".join(sheet.families)
             if sheet.optional_note:
                 st.markdown(
-                    f"- **{sheet.name}** — 公式表（若上传则标注，非必需）· 岗位族: {roles}"
+                    f"- **{sheet.name}** — 可选 · 公式表（若上传则标注，非必需）· 岗位族: {roles}"
+                )
+            elif sheet.optional_skeleton:
+                st.markdown(
+                    f"- **{sheet.name}** — 可选 · 人员骨架（无 提成汇总 时用作行键）· 岗位族: {roles}"
+                )
+            elif sheet.optional_role_family:
+                st.markdown(
+                    f"- **{sheet.name}** — 可选 · 岗位族专用（缺失不阻断试算）· 岗位族: {roles}"
+                )
+            elif sheet.optional_input:
+                st.markdown(
+                    f"- **{sheet.name}** — 可选 · 管理岗拓扑回放（有销售主管/经理等行键时再上传）· 岗位族: {roles}"
                 )
             else:
                 st.markdown(
-                    f"- **{sheet.name}** — header_row={sheet.header_row} · "
+                    f"- **{sheet.name}** — **必需** · header_row={sheet.header_row} · "
                     f"来源: {sheet.source} · 岗位族: {roles}"
                 )

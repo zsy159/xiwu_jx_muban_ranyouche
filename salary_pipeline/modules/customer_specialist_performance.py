@@ -17,6 +17,7 @@ from salary_pipeline.calculators.customer_specialist.registry import (
 )
 from salary_pipeline.config.hub_performance_loader import load_hub_performance_config
 from salary_pipeline.data_ingestion.customer_specialist_sheet import (
+    SHEET as CUSTOMER_SHEET,
     lookup_hub_metrics,
     match_customer_row,
 )
@@ -60,6 +61,14 @@ class CustomerSpecialistPerformanceModule(BaseCommissionModule):
             )
 
         loader = build_workbook_loader(context)
+        sheet = str(family.get("rules_sheet", CUSTOMER_SHEET))
+        sheet_available = loader.has_sheet(sheet)
+        if not sheet_available:
+            logger.warning(
+                "%s: sheet %r missing; overlay leaves customer specialist columns empty",
+                self.name,
+                sheet,
+            )
         month = context.get("month_config", {}).get("month", "")
         finance_overrides = load_finance_hub_overrides(month) if month else {}
 
@@ -80,7 +89,7 @@ class CustomerSpecialistPerformanceModule(BaseCommissionModule):
             if name in finance_overrides:
                 for col, val in finance_overrides[name].items():
                     row_data[col] = val
-            else:
+            elif sheet_available:
                 metrics = lookup_hub_metrics(loader, name)
                 for hub_col in hub_mapping_for_role(role):
                     if hub_col in metrics:
@@ -109,6 +118,8 @@ class CustomerSpecialistPerformanceModule(BaseCommissionModule):
                 "family_id": FAMILY_ID,
                 "rules_sheet": family.get("rules_sheet", "客户部提成"),
                 "algorithm": "cell_ref_subsheet",
+                "source_sheet": sheet,
+                "sheet_available": sheet_available,
                 "finance_overrides": len(finance_overrides),
                 "rows": len(metrics),
             },

@@ -1,0 +1,34 @@
+test_default_label_for_month (tests.test_onboard_ui.OnboardUiHelpersTest.test_default_label_for_month) ... ok
+test_list_inherit_source_months_excludes_target (tests.test_onboard_ui.OnboardUiHelpersTest.test_list_inherit_source_months_excludes_target) ... ok
+test_sales_relative_path (tests.test_onboard_ui.OnboardUiHelpersTest.test_sales_relative_path) ... ok
+test_sales_save_path_fallback_name (tests.test_onboard_ui.OnboardUiHelpersTest.test_sales_save_path_fallback_name) ... ok
+test_sales_save_path_uses_original_xlsx_name (tests.test_onboard_ui.OnboardUiHelpersTest.test_sales_save_path_uses_original_xlsx_name) ... ok
+test_save_sales_workbook_writes_bytes (tests.test_onboard_ui.OnboardUiHelpersTest.test_save_sales_workbook_writes_bytes) ... ok
+test_validate_month_id_errors (tests.test_onboard_ui.OnboardUiHelpersTest.test_validate_month_id_errors) ... ok
+test_validate_month_id_ok (tests.test_onboard_ui.OnboardUiHelpersTest.test_validate_month_id_ok) ... ok
+test_compute_reconcile_null_golden_skips (tests.test_multi_month_cli.MultiMonthCliTest.test_compute_reconcile_null_golden_skips) ... ok
+test_default_month_from_registry (tests.test_multi_month_cli.MultiMonthCliTest.test_default_month_from_registry) ... ok
+test_has_golden_workbook_null (tests.test_multi_month_cli.MultiMonthCliTest.test_has_golden_workbook_null) ... ok
+test_load_month_config_for_registered_months (tests.test_multi_month_cli.MultiMonthCliTest.test_load_month_config_for_registered_months) ... ok
+test_onboard_inherit_topology_writes_null_golden (tests.test_multi_month_cli.MultiMonthCliTest.test_onboard_inherit_topology_writes_null_golden) ... ok
+test_onboard_mutually_exclusive_flags (tests.test_multi_month_cli.MultiMonthCliTest.test_onboard_mutually_exclusive_flags) ... ok
+test_onboard_requires_topology_mode (tests.test_multi_month_cli.MultiMonthCliTest.test_onboard_requires_topology_mode) ... ok
+test_pipeline_month_config_injection (tests.test_multi_month_cli.MultiMonthCliTest.test_pipeline_month_config_injection) ... ok
+test_reconcile_null_golden_skips (tests.test_multi_month_cli.MultiMonthCliTest.test_reconcile_null_golden_skips) ... ok
+test_unknown_month_raises_system_exit (tests.test_multi_month_cli.MultiMonthCliTest.test_unknown_month_raises_system_exit) ... ok
+test_write_month_config_no_golden (tests.test_multi_month_cli.MultiMonthCliTest.test_write_month_config_no_golden) ... ok
+test_write_month_config_uses_template (tests.test_multi_month_cli.MultiMonthCliTest.test_write_month_config_uses_template) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.081s
+
+OK
+[compute] 提成汇总已生成: /Users/macstudio2/Desktop/projects/jx_muban_ranyouche/output/test/提成汇总.xlsx
+[compute] shape=(1, 1)
+[compute] 本月无金标准，跳过对账
+[onboard-month] 继承 2026-05 拓扑（无金标准）
+[onboard-month] 已注册 2099-06 (2099-06)
+[onboard-month] 配置: /var/folders/zs/t_66f2hn36vdn3v15chgfs800000gn/T/tmp1418chm5/cfg/month-2099-06.yaml
+[onboard-month] 不能同时使用 --extract-topology 与 --inherit-topology
+[onboard-month] 须指定 --extract-topology 或 --inherit-topology
+[reconcile] 本月无金标准，跳过

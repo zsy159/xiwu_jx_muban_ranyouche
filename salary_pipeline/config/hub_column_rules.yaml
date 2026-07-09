@@ -1,0 +1,214 @@
+# 提成汇总 W–AI 绩效列 — 声明式规则引擎配置（HubRuleEngine）
+#
+# 背景：原实现（HubFormulaEngine + salary_pipeline/calculators/sales_advisor/topology_specs.py）
+# 按 Excel 行号从 topology JSON 解析每行公式（*BA vs *H、+600 等），这要求「金标准行号」
+# 与当月生产数据严格对齐——一旦门店人员排班/行号变化（已发现 2026-05 多处名字错位），
+# 或生产 topology（合并上传表）根本不含 提成汇总 公式（当月即是如此），整条链路失效或
+# 静默产出 0。本文件改为按「店别 / 姓名」的业务规则声明各列来源，不依赖任何行号或
+# topology 公式回放。
+#
+# 数据来源：
+# - perf_columns 来自 computed_perf_frame（PerformanceSheetModule 系统计算，非金标准）
+# - multiplier=template 时的 BA 完成率来自 lookup_combined_completion_rate
+#   （销售任务及完成率!AG「合并完成率」列，按姓名匹配，不做系统封顶）
+# - multiplier=H 时的个人完成率来自当期 summary 行「销量完成率」列（F–P 计算结果）
+#
+# store_ba_shops 推导过程（2026-05 金标准拓扑扫描，仅只读，不回填数值）：
+#   遍历 data/topology/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).topology.json
+#   中 提成汇总!W{row} 的公式，按 提成汇总!B 列（含合并单元格）店别分组统计
+#   *BA{row} 与 *H{row} 用量，结果：
+#     崇州直营店 / 大邑直营店 / 邛崃直营店 / 彭州直营店 / 华阳直营店
+#       → 100% 使用 =SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D{row})*BA{row}（门店块）
+#     武侯DCC / 机场DCC / 机场展厅 / 直营店管理 / 西物-翼真
+#       → 使用 *H{row} 或无乘数（个人）
+#   同一扫描确认 Y（加装绩效）/ Z（保险绩效）在两类店别均恒定 *H{row}，与模板无关；
+#   韩柏成（西物-翼真）保险绩效公式为 =SUMIFS(...)+600（金标准手工核定的追加常数）。
+
+role_families:
+  销售顾问:
+    # 2026-07-07 用户明确要求：所有销售类岗位（销售顾问/销售主管/销售助理）
+    # 都按销售顾问同一套规则计算（含 template_selector 的 store_ba/personal_h
+    # 判定），不再为销售主管单独维持仅 W/Y/Z ×H 的窄规则（此前 2026-05 金标准
+    # 只读验证显示销售主管完成率恒定 ×H、不切 BA；用户知悉此差异，选择先统一
+    # 简化，"后面有问题再改"）。销售助理此前未登记任何 Hub 列，现一并纳入。
+    match:
+      职务: [销售顾问, 销售主管, 销售助理]
+    # 绩效整理表 SUMIF/SUMIFS 关键字列（按姓名）
+    perf_name_column: P
+    columns:
+      - hub_column: 整车绩效
+        perf_columns: [AG]
+        multiplier: template   # store_ba → ×BA；personal_h / insurance_add → ×H
+      - hub_column: 权限结余绩效
+        perf_columns: [AH]
+        multiplier: none
+      - hub_column: 加装绩效
+        perf_columns: [AI]
+        multiplier: H          # 全模板恒定 ×H，与整车绩效模板无关
+      - hub_column: 保险绩效
+        perf_columns: [AJ]
+        multiplier: H
+        allow_add_const: true  # insurance_add 模板：+ name_overrides.insurance_add_const
+      - hub_column: 金融绩效
+        perf_columns: [AK]
+        multiplier: none
+      - hub_column: 爱车宝绩效
+        perf_columns: [AM]
+        multiplier: none
+      - hub_column: 上户绩效
+        perf_columns: [AN, AS]  # 两项之和
+        multiplier: none
+      - hub_column: 盈利产品绩效
+        perf_columns: [AL]
+        multiplier: none
+      - hub_column: 延保提成
+        perf_columns: [AT]
+        multiplier: none
+      - hub_column: 特殊车型+指定车型
+        perf_columns: [AQ]
+        multiplier: none
+      - hub_column: 座位险提成
+        perf_columns: [AO]
+        multiplier: none
+      - hub_column: 二手车提成
+        perf_columns: [AR]
+        multiplier: none
+      - hub_column: 玻碎险提成
+        perf_columns: [AP]
+        multiplier: none
+    template_selector:
+      default_template: personal_h
+      store_ba_shops:
+        - 崇州直营店
+        - 大邑直营店
+        - 邛崃直营店
+        - 彭州直营店
+        - 华阳直营店
+      # 姓名级覆盖：优先于店别判定（wa_parity_deferred 中唯一有真实公式常数的个案）
+      name_overrides:
+        韩柏成:
+          template: insurance_add
+          insurance_add_const: 600
+      # 店别缺失/为空（子表匹配不到 提成汇总 行）时，按销售任务及完成率表姓名兜底 personal_h
+      fallback_template: personal_h
+
+  内勤:
+    match:
+      职务: [内勤, 出纳+内勤]
+    perf_name_column: P
+    columns:
+      - hub_column: 整车绩效
+        perf_columns: [AG]
+        multiplier: template
+      - hub_column: 权限结余绩效
+        perf_columns: [AH]
+        multiplier: none
+      - hub_column: 加装绩效
+        perf_columns: [AI]
+        multiplier: H
+      - hub_column: 保险绩效
+        perf_columns: [AJ]
+        multiplier: H
+    template_selector:
+      default_template: store_ba
+      store_ba_shops:
+        - 崇州直营店
+        - 大邑直营店
+        - 邛崃直营店
+        - 彭州直营店
+        - 华阳直营店
+      fallback_template: store_ba
+
+  网络顾问:
+    match:
+      职务: [网络部, 区域顾问, 销售内勤, 渠道]
+    perf_name_column: P
+    columns:
+      - hub_column: 整车绩效
+        perf_columns: [AG]
+        multiplier: template
+      - hub_column: 权限结余绩效
+        perf_columns: [AH]
+        multiplier: none
+      - hub_column: 加装绩效
+        perf_columns: [AI]
+        multiplier: H
+      - hub_column: 保险绩效
+        perf_columns: [AJ]
+        multiplier: H
+    template_selector:
+      default_template: personal_h
+      store_ba_shops:
+        - 崇州直营店
+        - 大邑直营店
+        - 邛崃直营店
+        - 彭州直营店
+        - 华阳直营店
+      fallback_template: personal_h
+
+  新媒体翼真:
+    match:
+      店别: 西物-翼真
+      职务: 新媒体
+    perf_name_column: P
+    columns:
+      - hub_column: 整车绩效
+        perf_columns: [AG]
+        multiplier: none
+      - hub_column: 权限结余绩效
+        perf_columns: [AH]
+        multiplier: none
+      - hub_column: 加装绩效
+        perf_columns: [AI]
+        multiplier: none
+      - hub_column: 保险绩效
+        perf_columns: [AJ]
+        multiplier: none
+
+  # 以下岗位族已由独立业务模块计算 W–AI（非 topology 回放），HubRuleEngine 不接管；
+  # 计算逻辑见 salary_pipeline/modules/<*>_performance.py，登记见 hub_performance.yaml
+  # 内勤 / 网络顾问 / 新媒体翼真 的规则见上方同名 family（模块内 HubRuleEngine）
+  新媒体:
+    delegate: module
+  邀约专员:
+    delegate: module
+  客户专员:
+    delegate: module
+  直营店经理:
+    delegate: module
+  招聘:
+    delegate: module
+  按揭内勤:
+    delegate: module
+
+  # 销售主管 / 销售助理：2026-07-07 起并入上方「销售顾问」family（match 列表），
+  # 不再单独注册。历史依据（2026-05 金标准只读验证，供后续复查差异用）：
+  #   销售主管完成率乘数原判定固定为 H，恒定不使用 BA（即使店别落在
+  #   store_ba_shops 列表也不切换）；验证样本 提成汇总 row 60 邓戈/机场展厅、
+  #   row 107 熊杰文/武侯DCC，两人门店均不在 store_ba_shops 内，故并入统一
+  #   规则后 personal_h 兜底结果与原 H-only 规则数值一致，W/Y/Z 三列不受影响；
+  #   新增的其余列（金融/爱车宝/上户绩效等）此前未登记，现随统一规则一并计算。
+  #   若未来有销售主管/助理落在 store_ba_shops 门店，将按 store_ba 模板计算，
+  #   与本条历史验证的 H-only 结论不同——用户已知悉此权衡，选择先统一简化。
+  # 原独立模块 modules/sales_supervisor_performance.py 已删除，其职责合并进
+  # SalesAdvisorPerformanceModule（match_advisor_row 现覆盖三个职务）。
+
+  # 非一线管理（2026-07-07 用户业务确认 + 2026-05 金标准只读验证）：
+  # 销售管理部/事业部/总经办行的 W（整车绩效→语义列「岗位绩效」）/Y（加装绩效→
+  # 「业绩绩效」）等物理列**不是**按「绩效整理表」SUMIF/SUMIFS 公式计算，而是
+  # 金标准手工填入的固定数值，或引用另一张人工维护的子表：
+  #   row 140 王欢 W = 8800（字面常量）
+  #   row 141 袁顺序 W = '=9466.67*0.9'（字面常量表达式，非引用绩效整理表）
+  #   row 142/143 钟小丽/范娜 W = ='销售管理岗提成依据 新标'!AT13 / AT15
+  #     （引用另一张人工维护的「销售管理岗提成依据 新标」子表，非系统计算列）
+  #   row 146-158（事业部/总经办）W 均为字面常量（如 6500/15000/10833.33 等）
+  # 结论：非一线人员的「岗位绩效」确系用户所述"手填"数据，系统不应也不能按
+  # 公式推导，禁止用规则/topology 兜底伪造数值（no-golden-bootstrap 规则）。
+  # 保留空白 + 手工填入标注（见 commission_summary_column_sources.py 中
+  # 岗位绩效/业绩绩效/业绩绩效1/业绩绩效2/新能源专项 的 manual 高亮登记）。
+  # 语义列（售后总产值/台次/提成系数等，来自 M/N/Q-V 等已系统计算的毛利/派生
+  # 列）不受本条影响，仍由 apply_non_frontline_columns 处理；本条仅涉及
+  # W（整车绩效）/X（权限结余绩效）/Y（加装绩效）/Z（保险绩效）等物理列。
+  非一线管理:
+    delegate: manual_semantic
+    hub_columns_manual: [整车绩效, 权限结余绩效, 加装绩效, 保险绩效]

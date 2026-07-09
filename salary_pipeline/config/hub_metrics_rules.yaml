@@ -1,0 +1,108 @@
+# 提成汇总 F–P 指标列 — 声明式规则（HubMetricsRuleEngine）
+#
+# 背景：原 HubFormulaEngine 按 Excel 拓扑逐格回放 F–P 公式，要求生产 topology
+# 含「提成汇总」公式与金标准行号对齐——但生产账套（合并上传表）本身不含
+# 提成汇总 sheet，回放链路对当月数据已是空转。改为按「同一套固定规则」
+# 声明 F–P 各列来源；同列因店别/岗位不同的差异，在本文件内以显式分组
+# （如 H 列 cap_groups）表达，不做按行号推断。
+#
+# 适用范围：提成汇总 全部人员行，按「姓名」匹配底层表；未匹配到 = 0
+# （与角色/职务无关——出纳/内勤/经理等无任务的人本就应得 0，非缺陷）。
+#
+# 数据来源：
+# - 销售任务及完成率（上传表，按 姓名=C 列 匹配）
+# - 绩效整理表（computed_perf_frame，PerformanceSheetModule 系统计算，按 姓名=P 列 匹配，
+#   非金标准数值）
+#
+# H 完成率封顶分组来源（2026-05 金标准拓扑只读扫描，仅用于推导分组，不回填数值）：
+#   遍历 提成汇总!H{row} 公式 IF(F<>0,IF(G/F>cap%,cap%,G/F),0) 按店别（B 列，含合并单元格）
+#   分组统计 cap 取值，结果：
+#     崇州/大邑/邛崃/彭州/华阳直营店、机场展厅、机场DCC、武侯DCC → 100% 使用 120% 封顶
+#     直营店管理、新媒体销售部、西物-翼真、销售管理部 → 100% 使用 110% 封顶
+#   若未来账期出现新店别，需要用户显式在下方 cap_groups 补充，不做隐式行号回退。
+
+columns:
+  - hub_column: 考核量
+    op: sumif
+    source_sheet: 销售任务及完成率
+    key_col: 姓名
+    value_col: 考核量
+    match_by: 姓名
+
+  - hub_column: 实际销量
+    op: sumif
+    source_sheet: 销售任务及完成率
+    key_col: 姓名
+    value_col: 实际销量
+    match_by: 姓名
+
+  - hub_column: 销量完成率
+    op: ratio_with_cap_group
+    numerator: 实际销量
+    denominator: 考核量
+    group_by: 店别
+    default_cap: 1.2
+    cap_overrides:
+      - cap: 1.1
+        店别:
+          - 直营店管理
+          - 新媒体销售部
+          - 西物-翼真
+          - 销售管理部
+
+  - hub_column: 集客达成率
+    op: lookup_first
+    source_sheet: 销售任务及完成率
+    key_col: 姓名
+    value_col: 集客达成率
+    match_by: 姓名
+
+  - hub_column: 加装额
+    op: sumif
+    source_sheet: 绩效整理表
+    key_col: P
+    value_col: S
+    match_by: 姓名
+
+  - hub_column: 加装销量完成率
+    op: ratio
+    numerator: 加装额
+    denominator_expr: "实际销量 * 1500"
+
+  - hub_column: 保险渗透率
+    op: filtered_ratio
+    source_sheet: 绩效整理表
+    key_col: P
+    match_by: 姓名
+    value_col: K
+    filter_col: AB
+    filter_op: gt
+    filter_value: 0
+
+  - hub_column: 整车毛利
+    op: sumif
+    source_sheet: 绩效整理表
+    key_col: P
+    value_col: BG
+    match_by: 姓名
+
+  - hub_column: 加装毛利
+    op: sumif
+    source_sheet: 绩效整理表
+    key_col: P
+    value_col: BI
+    match_by: 姓名
+
+  - hub_column: 保险毛利
+    op: sumif
+    source_sheet: 绩效整理表
+    key_col: P
+    value_col: AB
+    match_by: 姓名
+
+  - hub_column: 按揭毛利
+    op: sumif
+    source_sheet: 绩效整理表
+    key_col: P
+    value_col: AC
+    match_by: 姓名

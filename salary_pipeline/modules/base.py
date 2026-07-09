@@ -8,6 +8,8 @@ import pandas as pd
 
 
 SUMMARY_KEY_COLUMNS = ["店别", "职务", "姓名"]
+PERSONNEL_SHEET = "人员信息"
+PERSONNEL_FILENAME = "人员信息.xlsx"
 
 
 @dataclass

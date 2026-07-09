@@ -1,0 +1,106 @@
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Computed hub /nonexistent/hub.xlsx missing; payout SUMIF numeric columns will be empty (D-column skeleton from 燃油车-2026年05月西物超市销售提成(终)(1).xlsx)
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+[compute-all] 提成汇总: /tmp/hub.xlsx
+[compute-all] hub shape=(0, 0)
+[compute-all] XW提成-发: /tmp/xw.xlsx
+[compute-all] xw shape=(0, 0) warnings=0
+[compute-all] 直营店提成-发: /tmp/direct_store.xlsx
+[compute-all] direct_store shape=(0, 0) warnings=0
+[compute-all] CS提成-发: /tmp/cs.xlsx
+[compute-all] cs shape=(0, 0) warnings=0
+[compute-all] 提成汇总: /tmp/hub.xlsx
+[compute-all] hub shape=(0, 0)
+[compute-all] XW提成-发: /tmp/xw.xlsx
+[compute-all] xw shape=(0, 0) warnings=0
+[compute-all] 直营店提成-发: /tmp/xw.xlsx
+[compute-all] direct_store shape=(0, 0) warnings=0
+[compute-all] CS提成-发: /tmp/xw.xlsx
+[compute-all] cs shape=(0, 0) warnings=0
+[compute-all] 提成汇总: /tmp/hub.xlsx
+[compute-all] hub shape=(1, 1)
+[compute-all] XW提成-发: /tmp/xw.xlsx
+[compute-all] xw shape=(1, 1) warnings=0
+[compute-all] 直营店提成-发: /tmp/direct_store.xlsx
+[compute-all] direct_store shape=(1, 1) warnings=0
+[compute-all] CS提成-发: /tmp/cs.xlsx
+[compute-all] cs shape=(1, 1) warnings=0
+[compute] 提成汇总已生成: /Users/macstudio2/Desktop/projects/jx_muban_ranyouche/output/test/提成汇总.xlsx
+[compute] shape=(1, 1)
+[compute] 本月无金标准，跳过对账
+[onboard-month] 继承 2026-05 拓扑（无金标准）
+[onboard-month] 已注册 2099-06 (2099-06)
+[onboard-month] 配置: /var/folders/zs/t_66f2hn36vdn3v15chgfs800000gn/T/tmpqdcw_uao/cfg/month-2099-06.yaml
+[onboard-month] 不能同时使用 --extract-topology 与 --inherit-topology
+[onboard-month] 须指定 --extract-topology 或 --inherit-topology
+[reconcile] 本月无金标准，跳过
+Ran 324 tests
+failures=15
+  FAIL: test_golden_rows_core_columns (test_cs_payout.CsPayoutTests.test_golden_rows_core_columns)
+  FAIL: test_sales_assistant_w_without_bootstrap (test_hub_formula_engine.TestHubFormulaEngine.test_sales_assistant_w_without_bootstrap) (name='王熙鸿')
+  FAIL: test_bundle_has_gated_performance_section (test_hub_parity_bundle.HubParityBundleTest.test_bundle_has_gated_performance_section)
+  FAIL: test_bundle_has_performance_section (test_hub_parity_bundle.HubParityBundleTest.test_bundle_has_performance_section)
+  FAIL: test_slice_4_order_keys_match_golden (test_performance_sheet_builder.PerformanceSheetBuilderTest.test_slice_4_order_keys_match_golden)
+  FAIL: test_build_alias_matches_slice_6 (test_performance_sheet_module.PerformanceSheetBuilderProductionTest.test_build_alias_matches_slice_6)
+  FAIL: test_sales_pipeline_wires_computed_perf (test_performance_sheet_module.PerformanceSheetModuleTest.test_sales_pipeline_wires_computed_perf)
+  FAIL: test_covers_all_families (test_salary_summary.SalarySummaryTest.test_covers_all_families)
+  FAIL: test_family_stats (test_salary_summary.SalarySummaryTest.test_family_stats)
+  FAIL: test_aligned_matches_golden_for_sample (test_sales_advisor_aligned.SalesAdvisorAlignedTest.test_aligned_matches_golden_for_sample) (name='韩柏成')
+  FAIL: test_prefill_sums_match_golden_perf_sheet (test_sales_advisor_aligned.SalesAdvisorAlignedTest.test_prefill_sums_match_golden_perf_sheet) (name='韩柏成')
+  FAIL: test_calculator_matches_topology_engine (test_sales_advisor_performance.SalesAdvisorCalculatorTest.test_calculator_matches_topology_engine)
+  FAIL: test_han_baicheng_insurance_add_600 (test_sales_advisor_performance.SalesAdvisorCalculatorTest.test_han_baicheng_insurance_add_600)
+  FAIL: test_pipeline_w_ai_zero_diff_after_overlay (test_sales_advisor_performance.SalesAdvisorPipelineTest.test_pipeline_w_ai_zero_diff_after_overlay)
+  FAIL: test_same_column_reads_share_cache (test_workbook_loader_cache.TestWorkbookLoaderCache.test_same_column_reads_share_cache)
+errors=1
+  ERROR: test_hub_rows_match_golden (test_customer_specialist_performance.CustomerSpecialistHubWaiTest.test_hub_rows_match_golden)
+FAILED

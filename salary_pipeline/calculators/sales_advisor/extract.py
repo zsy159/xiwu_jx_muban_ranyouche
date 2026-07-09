@@ -107,7 +107,7 @@ def compute_for_advisor(
     bootstrap_from_golden: bool = False,
 ) -> AdvisorPerformanceResult:
     person = extract_advisor_input(row)
-    specs = load_row_specs(person.excel_row)
+    specs = load_row_specs(person.excel_row, topology_path=topology_path)
     if topology_path is not None:
         eval_perf = build_eval_perf_frame(
             loader,
@@ -163,9 +163,17 @@ def lookup_golden_hub_all(
     return out
 
 
+# 2026-07-07 用户要求：所有销售类岗位（顾问/主管/助理）都按销售顾问规则计算
+# （见 config/hub_column_rules.yaml 顶部注释）；后续如需拆分差异化规则，
+# 从这里的标题集合入手即可。
+ADVISOR_FAMILY_TITLES = frozenset(
+    normalize_name(t) for t in ("销售顾问", "销售主管", "销售助理")
+)
+
+
 def match_advisor_row(row: pd.Series) -> bool:
     title = normalize_name(str(row.get("职务", "")))
     name = str(row.get("姓名", "")).strip()
     if not name or name == "空白":
         return False
-    return title == normalize_name("销售顾问")
+    return title in ADVISOR_FAMILY_TITLES

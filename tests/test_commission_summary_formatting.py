@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
+from salary_pipeline.paths import PROJECT_ROOT
 from salary_pipeline.pipelines.commission_summary import (
     SUMMARY_TEMPLATE_COLUMNS,
     CommissionSummaryBuilder,
@@ -44,12 +45,13 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
                 "golden_workbook": "upload/sales.xlsx",
             }
         }
+        ref = Path("data/raw/2026-05/golden.xlsx")
         with patch(
-            "salary_pipeline.pipelines.commission_summary_formatting.resolve_project_path",
-            side_effect=lambda p: Path(str(p)),
-        ), patch.object(Path, "exists", return_value=True):
+            "salary_pipeline.data_ingestion.data_loader.resolve_parity_golden_workbook",
+            return_value=ref,
+        ):
             path = resolve_highlight_golden_path(cfg)
-        self.assertEqual(path, Path("data/raw/2026-05/golden.xlsx"))
+        self.assertEqual(path, ref)
 
     def test_export_then_highlight_invokes_formatting(self) -> None:
         from salary_pipeline.pipelines.commission_summary import load_month_config
@@ -110,7 +112,76 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
             self.assertEqual(stats.deferred, 5)
             self.assertEqual(stats.annotated, 2)
 
-    def test_lightweight_highlight_skips_enrich_and_deferred(self) -> None:
+    def test_resolve_highlight_golden_skips_upload_merge_without_hub_sheet(self) -> None:
+        cfg = {
+            "parity": {"golden_workbook": "data/raw/2026-04/销售账套-合并-2026-04.xlsx"},
+            "workbooks": {"sales": "data/raw/2026-04/销售账套-合并-2026-04.xlsx"},
+            "outputs": {"commission_summary_sheet": "提成汇总"},
+        }
+        canonical = Path("data/raw/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).xlsx")
+        with patch(
+            "salary_pipeline.data_ingestion.data_loader.resolve_project_path",
+            side_effect=lambda p: Path(str(p)),
+        ), patch(
+            "salary_pipeline.data_ingestion.data_loader.workbook_has_sheet",
+            side_effect=lambda path, sheet: path == canonical,
+        ), patch(
+            "salary_pipeline.data_ingestion.data_loader.resolve_canonical_skeleton_workbook",
+            return_value=canonical,
+        ):
+            path = resolve_highlight_golden_path(cfg)
+        self.assertEqual(path, canonical)
+
+    def test_trial_highlight_with_merged_upload_does_not_read_hub_from_upload(self) -> None:
+        merged = PROJECT_ROOT / "data/raw/2026-05/销售账套-合并-2026-05.xlsx"
+        if not merged.exists():
+            self.skipTest("merged workbook not available")
+
+        from salary_pipeline.ingestion_upload.month_config import write_month_config
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = Path(tmp) / "config"
+            config_path = write_month_config(
+                "2026-05",
+                sales_workbook=str(merged.relative_to(PROJECT_ROOT)),
+                sales_topology="data/topology/2026-05/销售账套-合并-2026-05.topology.json",
+                staging=True,
+                config_dir=config_dir,
+            )
+            import yaml
+
+            month_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            self.assertTrue(month_config["parity"].get("reference_golden_workbook"))
+
+            summary = pd.DataFrame(
+                {
+                    "序号": [1],
+                    "店别": ["崇州直营店"],
+                    "职务": ["销售顾问"],
+                    "姓名": ["测试顾问"],
+                    "人数": [1],
+                    "考核量": [1],
+                }
+            )
+            builder = CommissionSummaryBuilder()
+            computed = Path(tmp) / "提成汇总.xlsx"
+            builder.export_excel(summary, computed)
+
+            with patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.add_commission_summary_color_legend",
+            ), patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.highlight_commission_summary_mismatches",
+                return_value=0,
+            ), patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.CommissionSummaryParity",
+            ) as parity_cls:
+                parity_cls.return_value.collect_mismatches_from_files.return_value = []
+                stats = apply_commission_summary_highlighting(month_config, computed)
+            self.assertEqual(stats.mismatches, 0)
+            golden_arg = parity_cls.return_value.collect_mismatches_from_files.call_args[0][1]
+            self.assertNotEqual(golden_arg.resolve(), merged.resolve())
+
+    def test_lightweight_highlight_skips_static_gray(self) -> None:
         columns = ["店别", "职务", "姓名", "整车毛利"]
         df = pd.DataFrame(
             [{"店别": "西物", "职务": "销售顾问", "姓名": "张三", "整车毛利": 101.0}]
@@ -139,8 +210,11 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
                 side_effect=AssertionError("enrich_cell_mismatches should not run"),
             ) as enrich, patch(
                 "salary_pipeline.pipelines.commission_summary_formatting.highlight_commission_summary_deferred_cells",
-                side_effect=AssertionError("deferred highlight should not run"),
+                return_value=2,
             ) as deferred, patch(
+                "salary_pipeline.pipelines.commission_summary_formatting.highlight_manual_hub_columns",
+                return_value=0,
+            ) as manual, patch(
                 "salary_pipeline.pipelines.commission_summary_formatting.add_commission_summary_annotations",
                 side_effect=AssertionError("annotations should not run"),
             ) as annotations, patch(
@@ -160,6 +234,7 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
 
             enrich.assert_not_called()
             deferred.assert_not_called()
+            manual.assert_not_called()
             annotations.assert_not_called()
             self.assertEqual(stats.mismatches, 1)
             self.assertEqual(stats.deferred, 0)
@@ -184,7 +259,7 @@ class CommissionSummaryFormattingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "提成汇总.xlsx"
             builder.export_excel(summary, path)
-            exported = pd.read_excel(path, header=1, nrows=1)
+            exported = pd.read_excel(path, header=2, nrows=1)
         self.assertEqual(list(exported.columns), SUMMARY_TEMPLATE_COLUMNS)
         self.assertEqual(float(exported.loc[0, "台次"]), 742.0)
         self.assertEqual(float(exported.loc[0, "岗位绩效"]), 2700.0)

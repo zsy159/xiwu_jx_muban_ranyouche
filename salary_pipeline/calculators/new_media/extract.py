@@ -41,7 +41,7 @@ def extract_role_inputs(loader: WorkbookLoader, role_name: str) -> Any:
 
         return registry_default(role)
 
-    ws = loader._workbook()["新媒体"]
+    ws = loader.worksheet("新媒体")
     template = role["template"]
 
     if template == "manual":
@@ -99,7 +99,7 @@ def lookup_golden_ab(loader: WorkbookLoader, role_name: str) -> float | None:
     ab_row = block.get("ab_row")
     if not ab_row:
         return None
-    ws = loader._workbook()["新媒体"]
+    ws = loader.worksheet("新媒体")
     val = ws.cell(int(ab_row), 28).value
     try:
         return float(val)

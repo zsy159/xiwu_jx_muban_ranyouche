@@ -23,6 +23,7 @@ from salary_pipeline.config.hub_performance_match import (
     combined_gated_row_mask,
     gated_families,
     gated_performance_columns,
+    hub_columns_for_row,
 )
 from salary_pipeline.calculators.sales_advisor.registry import is_parity_deferred_cell
 from salary_pipeline.calculators.non_frontline.classification import (
@@ -37,6 +38,16 @@ from salary_pipeline.validation.golden_perf_skips import (
 logger = logging.getLogger(__name__)
 
 
+def resolve_hub_compare_columns(parity_cfg: dict[str, Any]) -> list[str]:
+    """Merge F–P metrics, W–AI performance, and AM–AP adjustment columns for highlight."""
+    cols: list[str] = []
+    for key in ("columns", "performance_columns", "adjustment_columns"):
+        for col in parity_cfg.get(key) or []:
+            if col not in cols:
+                cols.append(col)
+    return cols
+
+
 def _cell_float(value: object) -> float | None:
     try:
         num = float(value)  # type: ignore[arg-type]
@@ -45,6 +56,13 @@ def _cell_float(value: object) -> float | None:
     if num != num:
         return None
     return num
+
+
+def _series_effectively_zero(series: pd.Series) -> pd.Series:
+    """True for blank/NaN and numeric zero (0, 0.0, \"0\")."""
+    blank = series.isna() | (series.map(str).str.strip() == "")
+    numeric = pd.to_numeric(series, errors="coerce")
+    return blank | numeric.eq(0).fillna(False)
 
 
 @dataclass
@@ -137,6 +155,8 @@ class CommissionSummaryParity:
         computed_perf_path: Path | None = None,
         deferred_cells: dict[str, frozenset[str]] | None = None,
         literal_columns: bool = False,
+        performance_columns: frozenset[str] | None = None,
+        treat_empty_as_zero: bool = True,
     ) -> None:
         self.join_keys = join_keys or ["店别", "职务", "姓名"]
         self.numeric_tolerance = numeric_tolerance
@@ -147,7 +167,10 @@ class CommissionSummaryParity:
         self.computed_perf_path = computed_perf_path
         self.deferred_cells = deferred_cells
         self.literal_columns = literal_columns
+        self.performance_columns = performance_columns
+        self.treat_empty_as_zero = treat_empty_as_zero
         self._erwang_ah_adjustments: dict[str, float] | None = None
+        self._hub_cfg: dict[str, Any] | None = None
 
     def _parity_columns(self, shop: Any, role: Any, column: str) -> tuple[str, str]:
         if self.literal_columns:
@@ -423,6 +446,8 @@ class CommissionSummaryParity:
             golden_workbook=golden_workbook,
             computed_perf_path=perf_path,
             literal_columns=self.literal_columns,
+            performance_columns=self.performance_columns,
+            treat_empty_as_zero=self.treat_empty_as_zero,
         )
 
     def _erwang_adjustments(self) -> dict[str, float]:
@@ -457,6 +482,43 @@ class CommissionSummaryParity:
         shop = row.get("店别")
         role = row.get("职务")
         return shop, role
+
+    def _row_identity(self, row: pd.Series) -> tuple[Any, Any, Any]:
+        shop = row.get("店别_golden", row.get("店别"))
+        role = row.get("职务_golden", row.get("职务"))
+        name = row.get("姓名_golden", row.get("姓名"))
+        return shop, role, name
+
+    def _hub_performance_config(self) -> dict[str, Any]:
+        if self._hub_cfg is None:
+            self._hub_cfg = load_hub_performance_config()
+        return self._hub_cfg
+
+    def _should_compare_column(self, row: pd.Series, column: str) -> bool:
+        """Metrics columns always compare; performance columns use parity_gate scope."""
+        if not self.performance_columns or column not in self.performance_columns:
+            return True
+
+        _shop, role, name = self._row_identity(row)
+        identity = pd.Series(
+            {"店别": _shop, "职务": role, "姓名": name},
+        )
+        if str(role) in ("销售顾问", "销售主管", "销售助理") and pd.notna(name):
+            from salary_pipeline.calculators.sales_advisor.registry import (
+                get_role,
+                is_hub_linked,
+            )
+
+            advisor = get_role(str(name))
+            if advisor is not None and not is_hub_linked(advisor):
+                return False
+
+        fam_cols = hub_columns_for_row(identity, self._hub_performance_config())
+        if not fam_cols:
+            # 职务/店别未落入任何 parity_gate 岗位族时仍比对，避免金标准有值、
+            # 系统留空（如 职务=渠道 的余才万3）被静默跳过。
+            return True
+        return column in fam_cols
 
     def _apply_parity_skips(
         self,
@@ -543,6 +605,8 @@ class CommissionSummaryParity:
 
             for idx in merged.index:
                 row = merged.loc[idx]
+                if not self._should_compare_column(row, col):
+                    continue
                 shop, row_role = self._row_shop_role(row)
                 golden_col, computed_col = self._parity_columns(shop, row_role, col)
                 g_col, c_col = self._resolve_merged_cols(merged, golden_col, computed_col)
@@ -624,6 +688,8 @@ class CommissionSummaryParity:
         for col in compare_columns:
             for idx in merged.index:
                 row = merged.loc[idx]
+                if not self._should_compare_column(row, col):
+                    continue
                 shop, row_role = self._row_shop_role(row)
                 golden_col, computed_col = self._parity_columns(shop, row_role, col)
                 g_col, c_col = self._resolve_merged_cols(merged, golden_col, computed_col)
@@ -694,6 +760,11 @@ class CommissionSummaryParity:
                 r[text].map(str).str.strip()
             )
 
+        if self.treat_empty_as_zero:
+            out_valid = out_valid | (
+                _series_effectively_zero(l) & _series_effectively_zero(r)
+            )
+
         out.loc[valid] = out_valid
         return out
 
@@ -736,11 +807,15 @@ def compare_hub_parity_bundle(
     header_row = int(parity_cfg.get("header_row", 2))
     data_start_row = int(parity_cfg.get("data_start_row", 3))
 
+    metrics_cols = list(parity_cfg.get("columns") or []) + list(
+        parity_cfg.get("adjustment_columns") or []
+    )
     metrics_checker = CommissionSummaryParity(
         join_keys=join_keys,
         numeric_tolerance=tolerance,
-        columns=parity_cfg.get("columns"),
+        columns=metrics_cols or None,
         deferred_cells=deferred_cells,
+        treat_empty_as_zero=True,
     )
     metrics = metrics_checker.compare_files(
         computed_path,
@@ -762,6 +837,7 @@ def compare_hub_parity_bundle(
             golden_workbook=golden_workbook,
             computed_perf_path=perf_path,
             deferred_cells=deferred_cells,
+            treat_empty_as_zero=True,
         )
         performance = perf_checker.compare_files(
             computed_path,
@@ -840,6 +916,8 @@ def _compare_gated_performance(
         columns=gated_cols,
         golden_workbook=golden_workbook,
         computed_perf_path=perf_path,
+        performance_columns=frozenset(gated_cols),
+        treat_empty_as_zero=True,
     )
     report = checker.compare(
         computed_sub,

@@ -68,11 +68,11 @@ class ExcelFormatTests(unittest.TestCase):
 
             wb = load_workbook(path)
             ws = wb["提成汇总"]
-            # header row 2, first data row 3
-            self.assertEqual(ws["A3"].number_format, "General")
-            self.assertEqual(ws["E3"].number_format, "General")
-            self.assertEqual(ws["H3"].number_format, TWO_DECIMAL_FORMAT)
-            self.assertEqual(ws["I3"].number_format, TWO_DECIMAL_FORMAT)
+            # header row 3, first data row 4
+            self.assertEqual(ws["A4"].number_format, "General")
+            self.assertEqual(ws["E4"].number_format, "General")
+            self.assertEqual(ws["H4"].number_format, TWO_DECIMAL_FORMAT)
+            self.assertEqual(ws["I4"].number_format, TWO_DECIMAL_FORMAT)
 
     def test_commission_summary_export_includes_template_semantic_columns(self) -> None:
         summary = pd.DataFrame(
@@ -93,7 +93,7 @@ class ExcelFormatTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "提成汇总.xlsx"
             builder.export_excel(summary, path)
-            exported = pd.read_excel(path, header=1, nrows=0)
+            exported = pd.read_excel(path, header=2, nrows=0)
         self.assertEqual(list(exported.columns), SUMMARY_TEMPLATE_COLUMNS)
         for col in ("台次", "提成系数", "岗位绩效", "业绩绩效1"):
             self.assertIn(col, exported.columns)

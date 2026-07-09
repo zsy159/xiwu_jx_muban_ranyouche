@@ -1,0 +1,17 @@
+..............F....E.................................Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+..Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.F.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+.Formula warnings (first 5): ['SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32', 'SUMIF #REF criteria row 32']
+......Computed hub /nonexistent/hub.xlsx missing; payout SUMIF numeric columns will be empty (D-column skeleton from 燃油车-2026年05月西物超市销售提成(终)(1).xlsx)
+..FF.........................................................................................................

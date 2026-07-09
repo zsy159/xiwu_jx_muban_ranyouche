@@ -38,7 +38,7 @@ def extract_role_inputs(loader: WorkbookLoader, role_name: str) -> InviteDccInpu
 
         return default_input_for_role(role)
 
-    ws = loader._workbook()["邀约专员提成"]
+    ws = loader.worksheet("邀约专员提成")
     row = int(block["row"])
     template = role["template"]
     dms = _dms_from_row(ws, row)
@@ -96,7 +96,7 @@ def lookup_golden_af(loader: WorkbookLoader, role_name: str) -> float | None:
     row = role.get("excel_block", {}).get("row")
     if not row:
         return None
-    ws = loader._workbook()["邀约专员提成"]
+    ws = loader.worksheet("邀约专员提成")
     template = role.get("template", "")
     # 崇州个人 AF 为空，金标准在 AD 列（AF15=AD17）
     col = 30 if template == "chongzhou_invite" else 32

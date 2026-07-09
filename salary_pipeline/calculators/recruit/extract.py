@@ -110,7 +110,7 @@ def lookup_golden_hub(loader: WorkbookLoader, role_name: str) -> float | None:
     hub_row = role.get("hub_excel_row")
     if not hub_row:
         return None
-    ws = loader._workbook()[HUB_SHEET]
+    ws = loader.worksheet(HUB_SHEET)
     val = ws.cell(int(hub_row), HUB_INSURANCE_COL).value
     if val is None:
         return None

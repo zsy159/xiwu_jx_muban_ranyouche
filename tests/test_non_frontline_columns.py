@@ -42,6 +42,20 @@ class TestNonFrontlineClassification(unittest.TestCase):
     def test_advisor_not_non_frontline(self) -> None:
         self.assertFalse(is_non_frontline_row("崇州直营店", "销售顾问"))
 
+    def test_sales_supervisor_and_assistant_not_non_frontline(self) -> None:
+        """销售主管/销售助理现与顾问同规则计算 W–AI，不应被非一线逻辑清空。"""
+        self.assertFalse(is_non_frontline_row("机场展厅", "销售主管"))
+        self.assertFalse(is_non_frontline_row("武侯DCC", "销售助理"))
+
+    def test_customer_relations_dept_not_non_frontline(self) -> None:
+        """客户关系部（张保珍/邓芳/周舟）已由 CustomerSpecialistPerformanceModule
+        显式计算 整车绩效/权限结余绩效/加装绩效；若仍归类 support tier会被本模块
+        的物理列→语义列搬运清空，导致 提成汇总 显示为空
+        （2026-07-07 用户反馈"客户没有数值"根因）。"""
+        self.assertFalse(is_non_frontline_row("客户关系部", "主管"))
+        self.assertFalse(is_non_frontline_row("客户关系部", "专员"))
+        self.assertIsNone(non_frontline_tier("客户关系部", "专员"))
+
     def test_all_semantic_columns_includes_support_fields(self) -> None:
         cols = all_semantic_columns()
         self.assertIn("台次", cols)
@@ -140,6 +154,40 @@ class TestNonFrontlineColumns(unittest.TestCase):
         self.assertTrue(pd.isna(deng["整车绩效"]))
         self.assertTrue(pd.isna(deng["加装绩效"]))
 
+
+    def test_customer_specialist_columns_survive_non_frontline_pass(self) -> None:
+        """回归：客户关系部行的 整车绩效/权限结余绩效/加装绩效 不应被非一线
+        物理列→语义列搬运逻辑清空（2026-07-07 用户反馈"客户没有数值"）。"""
+        summary = pd.DataFrame(
+            [
+                {
+                    "店别": "客户关系部",
+                    "职务": "主管",
+                    "姓名": "张保珍",
+                    "整车绩效": 2000.0,
+                    "加装绩效": 4045.0,
+                },
+                {
+                    "店别": "客户关系部",
+                    "职务": "专员",
+                    "姓名": "邓芳",
+                    "权限结余绩效": 1170.0,
+                    "加装绩效": 4607.0,
+                },
+            ]
+        )
+        out = apply_non_frontline_columns(summary)
+        zhang = out.loc[out["姓名"] == "张保珍"].iloc[0]
+        self.assertEqual(float(zhang["整车绩效"]), 2000.0)
+        self.assertEqual(float(zhang["加装绩效"]), 4045.0)
+        self.assertTrue(pd.isna(zhang["岗位绩效"]))
+        self.assertTrue(pd.isna(zhang["业绩绩效1"]))
+
+        deng = out.loc[out["姓名"] == "邓芳"].iloc[0]
+        self.assertEqual(float(deng["权限结余绩效"]), 1170.0)
+        self.assertEqual(float(deng["加装绩效"]), 4607.0)
+        self.assertTrue(pd.isna(deng["新能源专项"]))
+        self.assertTrue(pd.isna(deng["业绩绩效1"]))
 
     def test_frontline_physical_columns_unchanged(self) -> None:
         summary = pd.DataFrame(

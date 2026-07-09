@@ -5,14 +5,16 @@ performance_sheet:
   use_golden_perf_sheet: false
 hub:
   bootstrap_from_golden: false
+  activity_column_name: 04月活动
 workbooks:
-  sales: output/2026-05/.staging/placeholder.xlsx
-  aftersales: data/raw/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).xlsx
-  rules: output/2026-05/.staging/placeholder.xlsx
+  sales: data/raw/2026-05/.staging/销售账套-合并-2026-05.xlsx
+  aftersales: ''
+  rules: data/raw/2026-05/.staging/销售账套-合并-2026-05.xlsx
+  sheet_sources_file: data/raw/2026-05/.staging/sheet_sources.json
 topology:
-  sales: data/topology/2026-05/销售账套-合并-2026-05.topology.json
-  aftersales: data/topology/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).topology.json
-  rules: data/topology/2026-05/销售账套-合并-2026-05.topology.json
+  sales: data/topology/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).topology.json
+  aftersales: ''
+  rules: data/topology/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).topology.json
 outputs:
   cache_dir: output/2026-05/.staging/cache
   commission_summary_sheet: 提成汇总
@@ -20,7 +22,7 @@ outputs:
   performance_sheet_file: output/2026-05/.staging/绩效整理表-系统生成.xlsx
   report_dir: output/2026-05/.staging/reports
 parity:
-  golden_workbook: output/2026-05/.staging/placeholder.xlsx
+  golden_workbook: data/raw/2026-05/.staging/销售账套-合并-2026-05.xlsx
   golden_sheet: 提成汇总
   header_row: 2
   data_start_row: 3
@@ -43,6 +45,11 @@ parity:
   - 加装毛利
   - 保险毛利
   - 按揭毛利
+  adjustment_columns:
+  - 综合项
+  - 04月活动
+  - 超期
+  - （已发放奖励）
   performance_columns:
   - 整车绩效
   - 权限结余绩效
@@ -57,16 +64,17 @@ parity:
   - 座位险提成
   - 二手车提成
   - 玻碎险提成
+  reference_golden_workbook: data/raw/2026-05/燃油车-2026年05月西物超市销售提成(终)(1).xlsx
 aftersales:
   header_row: 3
   data_start_row: 5
   stores:
     wuhou:
-      anchor_sheet: 05月提成-武侯售后
-      golden_workbook: data/raw/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).xlsx
+      anchor_sheet: 提成-武侯售后
+      golden_workbook: ''
     airport:
-      anchor_sheet: 05月提成-机场售后
-      golden_workbook: data/raw/2026-05/燃油车-2026年05月吉利超市售后提成(终)(1).xlsx
+      anchor_sheet: 提成-机场售后
+      golden_workbook: ''
 aftersales_parity:
   join_keys:
   - 店别
@@ -99,13 +107,13 @@ payout:
   data_start_row: 3
   xw:
     anchor_sheet: XW提成-发
-    golden_workbook: output/2026-05/.staging/placeholder.xlsx
+    golden_workbook: data/raw/2026-05/.staging/销售账套-合并-2026-05.xlsx
   direct_store:
     anchor_sheet: 直营店提成-发
-    golden_workbook: output/2026-05/.staging/placeholder.xlsx
+    golden_workbook: data/raw/2026-05/.staging/销售账套-合并-2026-05.xlsx
   cs:
     anchor_sheet: CS提成-发
-    golden_workbook: output/2026-05/.staging/placeholder.xlsx
+    golden_workbook: data/raw/2026-05/.staging/销售账套-合并-2026-05.xlsx
 payout_parity:
   join_keys:
   - 店别

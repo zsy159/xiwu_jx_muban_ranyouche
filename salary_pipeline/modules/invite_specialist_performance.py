@@ -19,6 +19,7 @@ from salary_pipeline.calculators.invite_specialist.registry import (
 from salary_pipeline.config.hub_performance_loader import load_hub_performance_config
 from salary_pipeline.data_ingestion.data_loader import build_workbook_loader, normalize_name
 from salary_pipeline.data_ingestion.invite_specialist_sheet import (
+    INVITE_SHEET,
     load_invite_specialist_frame,
     lookup_vehicle_performance,
 )
@@ -66,7 +67,15 @@ class InviteSpecialistPerformanceModule(BaseCommissionModule):
             )
 
         loader = build_workbook_loader(context)
-        source = load_invite_specialist_frame(loader)
+        sheet = str(family.get("source", {}).get("sheet", INVITE_SHEET))
+        sheet_available = loader.has_sheet(sheet)
+        if not sheet_available:
+            logger.warning(
+                "%s: sheet %r missing; overlay leaves invite specialist columns empty",
+                self.name,
+                sheet,
+            )
+        source = load_invite_specialist_frame(loader) if sheet_available else pd.DataFrame()
         month = context.get("month_config", {}).get("month", "")
         finance_overrides = load_finance_hub_overrides(month) if month else {}
 
@@ -89,6 +98,8 @@ class InviteSpecialistPerformanceModule(BaseCommissionModule):
 
             if name in finance_overrides:
                 perf = finance_overrides[name]
+            elif not sheet_available:
+                perf = 0.0
             elif hub_col == HUB_COLUMN_DCC:
                 perf = lookup_vehicle_performance(source, name)
             else:
@@ -125,7 +136,8 @@ class InviteSpecialistPerformanceModule(BaseCommissionModule):
                 "family_id": FAMILY_ID,
                 "rules_sheet": family.get("rules_sheet"),
                 "algorithm": "calculator_with_sumif_fallback",
-                "source_sheet": "邀约专员提成",
+                "source_sheet": sheet,
+                "sheet_available": sheet_available,
                 "finance_overrides": len(finance_overrides),
                 "rows": len(metrics),
             },

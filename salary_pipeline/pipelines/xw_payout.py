@@ -12,6 +12,12 @@ from salary_pipeline.modules.payout_skeleton import read_payout_skeleton
 from salary_pipeline.paths import CONFIG_DIR, resolve_project_path
 from salary_pipeline.utils.excel_format import format_writer_sheet
 from salary_pipeline.pipelines.payout_formatting import apply_payout_highlighting
+from salary_pipeline.pipelines.payout_column_sources import (
+    PAYOUT_DATA_START_ROW,
+    PAYOUT_HEADER_ROW,
+    PAYOUT_SOURCE_ROW,
+    build_payout_source_annotation_row,
+)
 from salary_pipeline.pipelines.xw_payout_formula_engine import (
     PAYOUT_CHANNEL_COLUMN_MAPS,
     PAYOUT_CHANNEL_CONFIGS,
@@ -51,6 +57,7 @@ class ChannelPayoutPipeline:
         self,
         channel: str = "xw",
         config_dir: Path | None = None,
+        month_config: dict[str, Any] | None = None,
     ) -> None:
         if channel not in PAYOUT_CHANNEL_CONFIGS:
             raise ValueError(
@@ -59,7 +66,10 @@ class ChannelPayoutPipeline:
             )
         self.channel = channel
         self.config_dir = config_dir or CONFIG_DIR
-        self.month_config = load_month_config(self.config_dir)
+        if month_config is not None:
+            self.month_config = month_config
+        else:
+            self.month_config = load_month_config(self.config_dir)
         self.engine_config: XwPayoutEngineConfig = PAYOUT_CHANNEL_CONFIGS[channel]
         self.column_map = PAYOUT_CHANNEL_COLUMN_MAPS[channel]
 
@@ -150,14 +160,27 @@ class ChannelPayoutPipeline:
         export = pd.DataFrame(columns=columns)
         for col in columns:
             export[col] = frame[col] if col in frame.columns else pd.NA
+        source_labels = build_payout_source_annotation_row(
+            columns, channel=self.channel
+        )
         with pd.ExcelWriter(path, engine="openpyxl") as writer:
             title = pd.DataFrame([[sheet_name]], columns=[sheet_name])
             title.to_excel(
                 writer, sheet_name=sheet_name, index=False, header=False, startrow=0
             )
-            export.to_excel(writer, sheet_name=sheet_name, index=False, startrow=2)
+            source_df = pd.DataFrame([source_labels], columns=columns)
+            source_df.to_excel(
+                writer,
+                sheet_name=sheet_name,
+                index=False,
+                header=False,
+                startrow=PAYOUT_SOURCE_ROW - 1,
+            )
+            export.to_excel(
+                writer, sheet_name=sheet_name, index=False, startrow=PAYOUT_HEADER_ROW - 1
+            )
             format_writer_sheet(
-                writer, sheet_name, export.columns, header_row=3
+                writer, sheet_name, export.columns, header_row=PAYOUT_HEADER_ROW
             )
         logger.info(
             "Exported %s payout -> %s shape=%s", self.channel, path, export.shape
@@ -167,5 +190,9 @@ class ChannelPayoutPipeline:
 class XwPayoutPipeline(ChannelPayoutPipeline):
     """西物渠道最终发薪表 XW提成-发。"""
 
-    def __init__(self, config_dir: Path | None = None) -> None:
-        super().__init__(channel="xw", config_dir=config_dir)
+    def __init__(
+        self,
+        config_dir: Path | None = None,
+        month_config: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(channel="xw", config_dir=config_dir, month_config=month_config)

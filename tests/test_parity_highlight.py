@@ -9,7 +9,11 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import load_workbook
 
-from salary_pipeline.pipelines.commission_summary import CommissionSummaryBuilder
+from salary_pipeline.pipelines.commission_summary import (
+    EXPORT_DATA_START_ROW,
+    EXPORT_HEADER_ROW,
+    CommissionSummaryBuilder,
+)
 from salary_pipeline.data_ingestion.data_loader import (
     normalize_header,
     read_computed_summary_excel,
@@ -34,7 +38,11 @@ from salary_pipeline.utils.excel_format import (
     highlight_commission_summary_deferred_cells,
     highlight_commission_summary_mismatches,
 )
-from salary_pipeline.validation.parity import CellMismatch, CommissionSummaryParity
+from salary_pipeline.validation.parity import (
+    CellMismatch,
+    CommissionSummaryParity,
+    resolve_hub_compare_columns,
+)
 
 
 class ManualFormulaDetectionTests(unittest.TestCase):
@@ -103,10 +111,14 @@ class ManualFormulaDetectionTests(unittest.TestCase):
             x_col = columns.index("权限结余绩效") + 1
             z_col = columns.index("保险绩效") + 1
             w_col = columns.index("整车绩效") + 1
-            ws.cell(row=3, column=x_col, value="=-140")
-            ws.cell(row=3, column=z_col, value="=SUMIFS(AJ:AJ,D:D,D3)+600")
-            ws.cell(row=4, column=x_col, value="=189*20")
-            ws.cell(row=4, column=w_col, value="=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)")
+            ws.cell(row=EXPORT_DATA_START_ROW, column=x_col, value="=-140")
+            ws.cell(row=EXPORT_DATA_START_ROW, column=z_col, value="=SUMIFS(AJ:AJ,D:D,D4)+600")
+            ws.cell(row=EXPORT_DATA_START_ROW + 1, column=x_col, value="=189*20")
+            ws.cell(
+                row=EXPORT_DATA_START_ROW + 1,
+                column=w_col,
+                value="=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D5)",
+            )
             wb.save(golden_path)
             wb.close()
 
@@ -119,6 +131,8 @@ class ManualFormulaDetectionTests(unittest.TestCase):
             manual_cells = collect_topology_manual_formula_cells(
                 topology_path=topo_path,
                 golden_workbook_path=golden_path,
+                header_row=EXPORT_HEADER_ROW,
+                data_start_row=EXPORT_DATA_START_ROW,
             )
             self.assertIn(("沈燕1", "销售顾问"), manual_cells)
             self.assertNotIn(
@@ -156,7 +170,7 @@ class ManualFormulaDetectionTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             col = columns.index("权限结余绩效") + 1
-            cell = ws.cell(row=3, column=col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=col)
             self.assertEqual(cell.fill.start_color.rgb, MANUAL_DEFERRED_FILL_RGB)
             self.assertEqual(cell.comment.text, MANUAL_DEFERRED_FILL_COMMENT)
 
@@ -212,21 +226,21 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             self.assertEqual(
-                ws["D3"].fill.start_color.rgb,
+                ws[f"D{EXPORT_DATA_START_ROW}"].fill.start_color.rgb,
                 PARITY_MISMATCH_FILL_RGB,
             )
-            self.assertIsNotNone(ws["D3"].comment)
-            assert ws["D3"].comment is not None
-            self.assertIn(PARITY_MISMATCH_FILL_COMMENT, ws["D3"].comment.text)
-            self.assertIn("金标准: 100", ws["D3"].comment.text)
-            self.assertIn("系统: 101", ws["D3"].comment.text)
+            self.assertIsNotNone(ws[f"D{EXPORT_DATA_START_ROW}"].comment)
+            assert ws[f"D{EXPORT_DATA_START_ROW}"].comment is not None
+            self.assertIn(PARITY_MISMATCH_FILL_COMMENT, ws[f"D{EXPORT_DATA_START_ROW}"].comment.text)
+            self.assertIn("金标准: 100", ws[f"D{EXPORT_DATA_START_ROW}"].comment.text)
+            self.assertIn("系统: 101", ws[f"D{EXPORT_DATA_START_ROW}"].comment.text)
             self.assertEqual(
-                ws["E4"].fill.start_color.rgb,
+                ws[f"E{EXPORT_DATA_START_ROW + 1}"].fill.start_color.rgb,
                 PARITY_MISMATCH_FILL_RGB,
             )
-            self.assertIsNotNone(ws["E4"].comment)
+            self.assertIsNotNone(ws[f"E{EXPORT_DATA_START_ROW + 1}"].comment)
             self.assertNotEqual(
-                ws["D4"].fill.start_color.rgb,
+                ws[f"D{EXPORT_DATA_START_ROW + 1}"].fill.start_color.rgb,
                 PARITY_MISMATCH_FILL_RGB,
             )
 
@@ -292,13 +306,13 @@ class ParityHighlightTests(unittest.TestCase):
             ws = wb["提成汇总"]
             # 唐操 整车绩效 — deferred (nan 店别 still matches)
             perf_col = list(df.columns).index("整车绩效") + 1
-            tang_cell = ws.cell(row=3, column=perf_col)
+            tang_cell = ws.cell(row=EXPORT_DATA_START_ROW, column=perf_col)
             self.assertEqual(
                 tang_cell.fill.start_color.rgb,
                 MANUAL_DEFERRED_FILL_RGB,
             )
             # 刘波 — not deferred
-            liu_cell = ws.cell(row=4, column=perf_col)
+            liu_cell = ws.cell(row=EXPORT_DATA_START_ROW + 1, column=perf_col)
             self.assertNotEqual(
                 liu_cell.fill.start_color.rgb,
                 MANUAL_DEFERRED_FILL_RGB,
@@ -354,7 +368,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             perf_col = list(computed.columns).index("整车绩效") + 1
-            cell = ws.cell(row=3, column=perf_col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=perf_col)
             self.assertEqual(cell.fill.start_color.rgb, MANUAL_DEFERRED_FILL_RGB)
             self.assertNotEqual(cell.fill.start_color.rgb, PARITY_MISMATCH_FILL_RGB)
 
@@ -408,21 +422,24 @@ class ParityHighlightTests(unittest.TestCase):
 
             wb = load_workbook(golden_path)
             ws = wb["提成汇总"]
-            ws["H3"] = 1
-            ws["Y4"] = 1000
+            ws[f"H{EXPORT_DATA_START_ROW}"] = 1
+            y_col = columns.index("加装绩效") + 1
+            ws.cell(row=EXPORT_DATA_START_ROW + 1, column=y_col, value=1000)
             wb.save(golden_path)
             wb.close()
 
             topo_path.write_text(
                 '{"cells": {'
-                '"提成汇总!W3": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D3)"},'
-                '"提成汇总!W4": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)"}'
+                '"提成汇总!W4": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)"},'
+                '"提成汇总!W5": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D5)"}'
                 "}}",
                 encoding="utf-8",
             )
             static_cells = collect_topology_static_fill_cells(
                 topology_path=topo_path,
                 golden_workbook_path=golden_path,
+                header_row=EXPORT_HEADER_ROW,
+                data_start_row=EXPORT_DATA_START_ROW,
             )
             self.assertIn(("王熙鸿", "销售助理"), static_cells)
             self.assertIn("销量完成率", static_cells[("王熙鸿", "销售助理")])
@@ -462,7 +479,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(golden_path)
             ws = wb["提成汇总"]
             t_col = columns.index("综合毛利") + 1
-            ws.cell(row=3, column=t_col, value="=462+101+77+102")
+            ws.cell(row=EXPORT_DATA_START_ROW, column=t_col, value="=462+101+77+102")
             wb.save(golden_path)
             wb.close()
 
@@ -470,6 +487,8 @@ class ParityHighlightTests(unittest.TestCase):
             static_cells = collect_topology_static_fill_cells(
                 topology_path=topo_path,
                 golden_workbook_path=golden_path,
+                header_row=EXPORT_HEADER_ROW,
+                data_start_row=EXPORT_DATA_START_ROW,
             )
             key = ("罗敏", "会计")
             self.assertIn(key, static_cells)
@@ -479,6 +498,8 @@ class ParityHighlightTests(unittest.TestCase):
             manual_cells = collect_topology_manual_formula_cells(
                 topology_path=topo_path,
                 golden_workbook_path=golden_path,
+                header_row=EXPORT_HEADER_ROW,
+                data_start_row=EXPORT_DATA_START_ROW,
             )
             self.assertNotIn("综合毛利", manual_cells.get(key, frozenset()))
             self.assertNotIn("主营单台毛利", manual_cells.get(key, frozenset()))
@@ -527,15 +548,15 @@ class ParityHighlightTests(unittest.TestCase):
             taici_col = columns.index("台次") + 1
             coef_col = columns.index("提成系数") + 1
             self.assertEqual(
-                ws.cell(row=3, column=taici_col).fill.start_color.rgb,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=taici_col).fill.start_color.rgb,
                 GOLDEN_STATIC_FILL_RGB,
             )
             self.assertEqual(
-                ws.cell(row=3, column=coef_col).fill.start_color.rgb,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=coef_col).fill.start_color.rgb,
                 GOLDEN_STATIC_FILL_RGB,
             )
             self.assertEqual(
-                ws.cell(row=3, column=taici_col).comment.text,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=taici_col).comment.text,
                 STATIC_FILL_COMMENT,
             )
 
@@ -561,22 +582,24 @@ class ParityHighlightTests(unittest.TestCase):
             ws = wb["提成汇总"]
             w_col = columns.index("整车绩效") + 1
             ws.cell(
-                row=3,
+                row=EXPORT_DATA_START_ROW,
                 column=w_col,
-                value="=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D3)",
+                value="=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)",
             )
             wb.save(golden_path)
             wb.close()
 
             topo_path.write_text(
                 '{"cells": {'
-                '"提成汇总!W3": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D3)"}'
+                '"提成汇总!W4": {"formula": "=SUMIFS(绩效整理表!AG:AG,绩效整理表!P:P,D4)"}'
                 "}}",
                 encoding="utf-8",
             )
             static_cells = collect_topology_static_fill_cells(
                 topology_path=topo_path,
                 golden_workbook_path=golden_path,
+                header_row=EXPORT_HEADER_ROW,
+                data_start_row=EXPORT_DATA_START_ROW,
             )
             self.assertNotIn("整车绩效", static_cells.get(("张三", "销售顾问"), frozenset()))
 
@@ -616,7 +639,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             h_col = columns.index("销量完成率") + 1
-            cell = ws.cell(row=3, column=h_col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=h_col)
             self.assertEqual(cell.fill.start_color.rgb, GOLDEN_STATIC_FILL_RGB)
             self.assertIsNotNone(cell.comment)
             self.assertEqual(cell.comment.text, STATIC_FILL_COMMENT)
@@ -660,7 +683,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             col = list(df.columns).index("整车毛利") + 1
-            cell = ws.cell(row=3, column=col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=col)
             assert cell.comment is not None
             self.assertIn("原因: F–P 验收层：测试根因", cell.comment.text)
 
@@ -698,7 +721,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             perf_col = columns.index("整车绩效") + 1
-            cell = ws.cell(row=3, column=perf_col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=perf_col)
             assert cell.comment is not None
             self.assertIn(MANUAL_DEFERRED_FILL_COMMENT, cell.comment.text)
             self.assertIn("渠道 I 个案", cell.comment.text)
@@ -731,7 +754,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             perf_col = columns.index("整车绩效") + 1
-            cell = ws.cell(row=3, column=perf_col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=perf_col)
             self.assertEqual(cell.fill.start_color.rgb, MANUAL_DEFERRED_FILL_RGB)
             self.assertIsNotNone(cell.comment)
             self.assertEqual(cell.comment.text, MANUAL_DEFERRED_FILL_COMMENT)
@@ -783,7 +806,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             y_col = columns.index("加装绩效") + 1
-            cell = ws.cell(row=3, column=y_col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=y_col)
             self.assertEqual(cell.fill.start_color.rgb, GOLDEN_STATIC_FILL_RGB)
 
     def test_deferred_wins_over_static_for_same_cell(self) -> None:
@@ -817,7 +840,7 @@ class ParityHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             y_col = columns.index("加装绩效") + 1
-            cell = ws.cell(row=3, column=y_col)
+            cell = ws.cell(row=EXPORT_DATA_START_ROW, column=y_col)
             self.assertEqual(cell.fill.start_color.rgb, MANUAL_DEFERRED_FILL_RGB)
 
     def test_cell_mismatch_join_dict(self) -> None:
@@ -936,11 +959,11 @@ class NonFrontlineHighlightTests(unittest.TestCase):
             physical_col = columns.index("整车绩效") + 1
             semantic_col = columns.index("岗位绩效") + 1
             self.assertNotEqual(
-                ws.cell(row=3, column=physical_col).fill.start_color.rgb,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=physical_col).fill.start_color.rgb,
                 GOLDEN_STATIC_FILL_RGB,
             )
             self.assertEqual(
-                ws.cell(row=3, column=semantic_col).fill.start_color.rgb,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=semantic_col).fill.start_color.rgb,
                 GOLDEN_STATIC_FILL_RGB,
             )
 
@@ -984,13 +1007,277 @@ class NonFrontlineHighlightTests(unittest.TestCase):
             wb = load_workbook(path)
             ws = wb["提成汇总"]
             self.assertEqual(
-                ws.cell(row=3, column=5).fill.start_color.rgb,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=5).fill.start_color.rgb,
                 PARITY_MISMATCH_FILL_RGB,
             )
             self.assertNotEqual(
-                ws.cell(row=3, column=4).fill.start_color.rgb,
+                ws.cell(row=EXPORT_DATA_START_ROW, column=4).fill.start_color.rgb,
                 PARITY_MISMATCH_FILL_RGB,
             )
+
+
+class GatedParityHighlightTests(unittest.TestCase):
+    def test_performance_column_scoped_to_family_hub_columns(self) -> None:
+        """DCC rows only compare family hub_columns, not all performance_columns."""
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "武侯DCC",
+                    "职务": "DCC邀约专员",
+                    "姓名": "陈文霜",
+                    "整车绩效": 4780.0,
+                    "加装绩效": 0.0,
+                    "保险绩效": 0.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "加装绩效"] = pd.NA
+        computed.loc[0, "保险绩效"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效", "加装绩效", "保险绩效"],
+            performance_columns=frozenset(
+                {"整车绩效", "加装绩效", "保险绩效"}
+            ),
+            treat_empty_as_zero=True,
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(mismatches, [])
+
+    def test_out_of_scope_performance_column_not_collected(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "新媒体销售部",
+                    "职务": "主播",
+                    "姓名": "王芝婕",
+                    "整车绩效": 8672.25,
+                    "加装绩效": 0.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "加装绩效"] = 999.0
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效", "加装绩效"],
+            performance_columns=frozenset({"整车绩效", "加装绩效"}),
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(mismatches, [])
+
+    def test_empty_equals_zero_for_performance_columns(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "武侯DCC",
+                    "职务": "DCC邀约专员",
+                    "姓名": "陈文霜",
+                    "整车绩效": 4780.0,
+                    "整车完成考核": 0.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "整车完成考核"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效", "整车完成考核"],
+            performance_columns=frozenset(
+                {"整车绩效", "整车完成考核"}
+            ),
+            treat_empty_as_zero=True,
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(mismatches, [])
+
+        checker_strict = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效", "整车完成考核"],
+            performance_columns=frozenset(
+                {"整车绩效", "整车完成考核"}
+            ),
+            treat_empty_as_zero=False,
+        )
+        mismatches_strict = checker_strict.collect_cell_mismatches(
+            computed, golden
+        )
+        self.assertEqual(len(mismatches_strict), 1)
+        self.assertEqual(mismatches_strict[0].column, "整车完成考核")
+
+    def test_hub_linked_false_advisor_skipped(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "西物",
+                    "职务": "销售助理",
+                    "姓名": "雷卓远",
+                    "整车绩效": 1400.0,
+                    "加装绩效": 500.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "整车绩效"] = pd.NA
+        computed.loc[0, "加装绩效"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效", "加装绩效"],
+            performance_columns=frozenset({"整车绩效", "加装绩效"}),
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(mismatches, [])
+
+    def test_metrics_columns_not_gated_by_family(self) -> None:
+        """F–P metrics columns compare on all rows regardless of family."""
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "新媒体销售部",
+                    "职务": "主播",
+                    "姓名": "王芝婕",
+                    "整车毛利": 100.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "整车毛利"] = 200.0
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车毛利", "整车绩效"],
+            performance_columns=frozenset({"整车绩效"}),
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(len(mismatches), 1)
+        self.assertEqual(mismatches[0].column, "整车毛利")
+
+    def test_unmapped_role_compares_performance_columns(self) -> None:
+        """职务=渠道 等未落入 parity_gate 岗位族时仍比对绩效列。"""
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "崇州直营店",
+                    "职务": "渠道",
+                    "姓名": "余才万3",
+                    "整车绩效": 120.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "整车绩效"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["整车绩效"],
+            performance_columns=frozenset({"整车绩效"}),
+            treat_empty_as_zero=True,
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(len(mismatches), 1)
+        self.assertEqual(mismatches[0].column, "整车绩效")
+        self.assertEqual(mismatches[0].join_dict()["姓名"], "余才万3")
+
+    def test_resolve_hub_compare_columns_includes_adjustment(self) -> None:
+        cols = resolve_hub_compare_columns(
+            {
+                "columns": ["整车毛利"],
+                "performance_columns": ["整车绩效"],
+                "adjustment_columns": ["综合项", "04月活动"],
+            }
+        )
+        self.assertEqual(
+            cols,
+            ["整车毛利", "整车绩效", "综合项", "04月活动"],
+        )
+
+    def test_adjustment_columns_compare_without_family_gate(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "西物",
+                    "职务": "销售顾问",
+                    "姓名": "唐鹏",
+                    "综合项": -400.0,
+                    "04月活动": 0.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "综合项"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["综合项", "04月活动", "整车绩效"],
+            performance_columns=frozenset({"整车绩效"}),
+            treat_empty_as_zero=True,
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        cols = {m.column for m in mismatches}
+        self.assertIn("综合项", cols)
+        self.assertNotIn("04月活动", cols)
+
+    def test_empty_equals_zero_default_for_metrics_and_adjustment(self) -> None:
+        """F–P and adjustment columns use empty≈0 by default (no perf_columns gate)."""
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "西物",
+                    "职务": "销售顾问",
+                    "姓名": "张三",
+                    "考核量": 0.0,
+                    "04月活动": 0.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "考核量"] = pd.NA
+        computed.loc[0, "04月活动"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["考核量", "04月活动"],
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(mismatches, [])
+
+    def test_nonempty_vs_empty_still_mismatches(self) -> None:
+        join_keys = ["店别", "职务", "姓名"]
+        golden = pd.DataFrame(
+            [
+                {
+                    "店别": "西物",
+                    "职务": "销售顾问",
+                    "姓名": "李四",
+                    "综合项": 120.0,
+                },
+            ]
+        )
+        computed = golden.copy()
+        computed.loc[0, "综合项"] = pd.NA
+
+        checker = CommissionSummaryParity(
+            join_keys=join_keys,
+            columns=["综合项"],
+        )
+        mismatches = checker.collect_cell_mismatches(computed, golden)
+        self.assertEqual(len(mismatches), 1)
+        self.assertEqual(mismatches[0].column, "综合项")
+        self.assertEqual(mismatches[0].golden_value, 120.0)
+        self.assertIsNone(mismatches[0].computed_value)
 
 
 class ColorLegendTests(unittest.TestCase):
@@ -1022,10 +1309,22 @@ class ColorLegendTests(unittest.TestCase):
                 ws.cell(row=2, column=7).fill.start_color.rgb, FORMULA_ANOMALY_FILL_RGB
             )
             self.assertIn("公式形态异常", ws.cell(row=2, column=8).value)
-            self.assertEqual(normalize_header(ws.cell(row=3, column=1).value), "店别")
+            self.assertEqual(
+                normalize_header(ws.cell(row=EXPORT_HEADER_ROW + 1, column=1).value),
+                "店别",
+            )
 
 
 class ReconcileAfterLegendTests(unittest.TestCase):
+    def test_computed_highlight_rows_respects_existing_legend(self) -> None:
+        from salary_pipeline.pipelines.commission_summary import computed_highlight_rows
+
+        header, data = computed_highlight_rows(
+            legend_inserted=False, legend_present=True
+        )
+        self.assertEqual(header, EXPORT_HEADER_ROW + 1)
+        self.assertEqual(data, EXPORT_DATA_START_ROW + 1)
+
     def test_compare_files_after_legend_insert(self) -> None:
         columns = ["店别", "职务", "姓名", "整车绩效"]
         df = pd.DataFrame(
@@ -1048,8 +1347,8 @@ class ReconcileAfterLegendTests(unittest.TestCase):
                 computed,
                 golden,
                 "提成汇总",
-                header_row=2,
-                data_start_row=3,
+                header_row=EXPORT_HEADER_ROW,
+                data_start_row=EXPORT_DATA_START_ROW,
             )
             self.assertTrue(report.overall_passed)
 

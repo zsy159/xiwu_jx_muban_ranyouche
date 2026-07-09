@@ -15,15 +15,28 @@ from openpyxl import load_workbook
 from salary_pipeline.ingestion_upload.manifest import (
     RequiredSheet,
     build_required_sheet_manifest,
+    filename_implies_sheet,
+    is_mandatory_input,
     normalize_sheet_name,
     required_input_sheets,
     resolve_sheet_alias,
+    resolve_sheet_from_upload,
 )
+from salary_pipeline.modules.base import PERSONNEL_FILENAME, PERSONNEL_SHEET
 from salary_pipeline.paths import PROJECT_ROOT, raw_month_dir
 
 MAX_FILE_BYTES = 80 * 1024 * 1024  # 80 MB per file
 MAX_TOTAL_BYTES = 200 * 1024 * 1024
 ALLOWED_SUFFIXES = {".xlsx", ".zip"}
+
+# Streamlit file_uploader accept list: extensions + MIME types for macOS Finder.
+STREAMLIT_UPLOAD_ACCEPT = [
+    "xlsx",
+    "zip",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/zip",
+    "application/x-zip-compressed",
+]
 
 
 class SheetMatchStatus(str, Enum):
@@ -47,6 +60,7 @@ class SheetMatch:
     status: SheetMatchStatus
     sources: list[str] = field(default_factory=list)
     resolved_name: str | None = None
+    detail: str | None = None
 
 
 @dataclass
@@ -64,15 +78,24 @@ class IntakeResult:
 
     @property
     def all_required_ready(self) -> bool:
-        required = [m for m in self.matches if not m.required.optional_note]
+        required = [m for m in self.matches if is_mandatory_input(m.required)]
         return all(m.status == SheetMatchStatus.READY for m in required)
+
+    @property
+    def missing_role_family_sheets(self) -> list[str]:
+        return [
+            m.required.name
+            for m in self.matches
+            if m.required.optional_role_family
+            and m.status == SheetMatchStatus.MISSING
+        ]
 
     @property
     def missing_sheets(self) -> list[str]:
         return [
             m.required.name
             for m in self.matches
-            if not m.required.optional_note and m.status == SheetMatchStatus.MISSING
+            if is_mandatory_input(m.required) and m.status == SheetMatchStatus.MISSING
         ]
 
     @property
@@ -114,6 +137,23 @@ class IntakeResult:
                 f"请先为 {len(unresolved)} 处冲突工作表选择来源（{preview}）"
             )
         return blockers
+
+
+def display_match_icon(
+    match: SheetMatch,
+    conflict_resolutions: dict[str, str] | None = None,
+) -> str:
+    """UI status glyph; optional role-family sheets show warning when missing."""
+    status, _ = display_match_status(match, conflict_resolutions)
+    if match.required.optional_role_family and status == SheetMatchStatus.MISSING:
+        return "⚠️"
+    icons = {
+        SheetMatchStatus.READY: "✅",
+        SheetMatchStatus.MISSING: "⬜",
+        SheetMatchStatus.CONFLICT: "⚠️",
+        SheetMatchStatus.NOTE: "ℹ️",
+    }
+    return icons.get(status, "•")
 
 
 def display_match_status(
@@ -161,6 +201,8 @@ def _validate_upload(name: str, data: bytes) -> str | None:
     suffix = Path(name).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
         return f"{name}: 仅支持 .xlsx / .zip"
+    if len(data) == 0:
+        return f"{name}: 文件为空（0 字节），请重新选择并上传"
     if len(data) > MAX_FILE_BYTES:
         return f"{name}: 单文件超过 {MAX_FILE_BYTES // (1024 * 1024)} MB"
     if suffix == ".xlsx" and not data[:2] == b"PK":
@@ -170,7 +212,11 @@ def _validate_upload(name: str, data: bytes) -> str | None:
 
 def _extract_zip(data: bytes, dest: Path) -> list[tuple[str, Path]]:
     extracted: list[tuple[str, Path]] = []
-    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+    try:
+        zf_ctx = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as exc:
+        raise ValueError("ZIP 文件无效或已损坏") from exc
+    with zf_ctx as zf:
         for info in zf.infolist():
             if info.is_dir():
                 continue
@@ -229,6 +275,63 @@ def _build_file_index(paths: list[Path]) -> list[UploadedFile]:
     return files
 
 
+def _resolve_upload_sheet_name(req_name: str, uf: UploadedFile) -> str | None:
+    """Resolve manifest sheet name to an actual worksheet inside an upload file."""
+    return resolve_sheet_from_upload(
+        req_name,
+        filename=uf.filename,
+        sheet_names=uf.sheet_names,
+    )
+
+
+def _missing_match_detail(req_name: str, files: list[UploadedFile]) -> str:
+    for uf in files:
+        if not filename_implies_sheet(uf.filename, req_name):
+            continue
+        if uf.size_bytes == 0:
+            return f"已上传 {uf.filename} 但文件为空（0 字节），请重新上传"
+        if not uf.sheet_names:
+            return f"已上传 {uf.filename} 但无法读取工作表"
+        inner = "、".join(uf.sheet_names)
+        return (
+            f"已上传 {uf.filename}，内部工作表为「{inner}」，"
+            f"与必需名「{req_name}」不一致"
+        )
+    return "未在任何上传文件中找到同名工作表"
+
+
+def _ready_match_detail(
+    req_name: str,
+    source_file: str,
+    resolved: str | None,
+) -> str | None:
+    if resolved and resolved != req_name:
+        return f"按文件名「{source_file}」匹配，使用工作表「{resolved}」"
+    return None
+
+
+def _append_personnel_file_sources(
+    files: list[UploadedFile],
+    sources: list[str],
+    resolved: str | None,
+) -> tuple[list[str], str | None]:
+    """Match 人员信息.xlsx by filename when the inner sheet is not named 人员信息."""
+    seen = set(sources)
+    out = list(sources)
+    resolved_out = resolved
+    for uf in files:
+        if uf.filename != PERSONNEL_FILENAME:
+            continue
+        if uf.filename not in seen:
+            seen.add(uf.filename)
+            out.append(uf.filename)
+        if resolved_out is None and uf.sheet_names:
+            resolved_out = resolve_sheet_alias(PERSONNEL_SHEET, set(uf.sheet_names))
+            if resolved_out is None:
+                resolved_out = uf.sheet_names[0]
+    return out, resolved_out
+
+
 def _match_sheets(
     manifest: list[RequiredSheet],
     files: list[UploadedFile],
@@ -246,7 +349,7 @@ def _match_sheets(
         resolved: str | None = None
         sources: list[str] = []
         for uf in files:
-            found = resolve_sheet_alias(req.name, set(uf.sheet_names))
+            found = _resolve_upload_sheet_name(req.name, uf)
             if found:
                 resolved = found
                 sources.append(uf.filename)
@@ -259,27 +362,52 @@ def _match_sheets(
                 unique_sources.append(src)
         sources = unique_sources
 
-        if req.optional_note:
+        if req.optional_skeleton and req.name == PERSONNEL_SHEET:
+            sources, resolved = _append_personnel_file_sources(files, sources, resolved)
+
+        if req.optional_note or req.optional_skeleton:
             if sources:
                 status = SheetMatchStatus.NOTE
             else:
-                continue  # don't show absent formula sheets
+                continue  # don't show absent optional sheets
+            detail = _ready_match_detail(req.name, sources[0], resolved)
             matches.append(
                 SheetMatch(
                     required=req,
                     status=status,
                     sources=sources,
                     resolved_name=resolved,
+                    detail=detail,
+                )
+            )
+            continue
+
+        if req.optional_input and not sources:
+            continue  # optional topology inputs — absent is OK, hidden from UI
+
+        if req.optional_role_family and not sources:
+            status = SheetMatchStatus.MISSING
+            detail = _missing_match_detail(req.name, files)
+            matches.append(
+                SheetMatch(
+                    required=req,
+                    status=status,
+                    sources=[],
+                    resolved_name=None,
+                    detail=detail,
                 )
             )
             continue
 
         if not sources:
             status = SheetMatchStatus.MISSING
+            detail = _missing_match_detail(req.name, files)
         elif len(sources) > 1:
             status = SheetMatchStatus.CONFLICT
+            detail = f"在 {len(sources)} 个文件中找到：{'、'.join(sources)}"
         else:
             status = SheetMatchStatus.READY
+            detail = _ready_match_detail(req.name, sources[0], resolved)
 
         matches.append(
             SheetMatch(
@@ -287,6 +415,7 @@ def _match_sheets(
                 status=status,
                 sources=sources,
                 resolved_name=resolved,
+                detail=detail,
             )
         )
     return matches
@@ -296,7 +425,7 @@ def _score_sales_candidate(uf: UploadedFile, required_names: set[str]) -> int:
     score = 0
     available = set(uf.sheet_names)
     for name in required_names:
-        if resolve_sheet_alias(name, available):
+        if _resolve_upload_sheet_name(name, uf):
             score += 1
     # Prefer filenames hinting at sales workbook
     lower = uf.filename.lower()
@@ -315,7 +444,7 @@ def _infer_workbooks(
 ) -> tuple[Path | None, Path | None]:
     path_by_name = {uf.filename: uf.path for uf in files}
     required_names = {
-        m.required.name for m in matches if not m.required.optional_note
+        m.required.name for m in matches if is_mandatory_input(m.required)
     }
 
     sales_file: str | None = None
@@ -387,12 +516,55 @@ def intake_uploads(
             + ", ".join(result.conflict_sheets)
         )
 
+    missing_role_families = result.missing_role_family_sheets
+    if missing_role_families:
+        preview = "、".join(missing_role_families[:6])
+        if len(missing_role_families) > 6:
+            preview += "…"
+        result.warnings.append(
+            f"以下岗位族专用表未上传（不阻断试算，对应岗位绩效将留空）: {preview}"
+        )
+
     return result
 
 
 def read_upload_bytes(upload: BinaryIO | bytes, filename: str) -> tuple[str, bytes]:
     data = upload.read() if hasattr(upload, "read") else upload
     return filename, data
+
+
+def normalize_streamlit_upload_files(files) -> list:
+    """Normalize file_uploader return value to a list (single or multi mode)."""
+    if files is None:
+        return []
+    if isinstance(files, list):
+        return files
+    return [files]
+
+
+def format_upload_size(size_bytes: int) -> str:
+    """Human-readable upload size for UI."""
+    if size_bytes <= 0:
+        return "0 字节（空文件）"
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.2f} MB"
+
+
+def pairs_from_streamlit_files(files) -> list[tuple[str, bytes]]:
+    """Build (filename, bytes) pairs from Streamlit UploadedFile objects."""
+    pairs: list[tuple[str, bytes]] = []
+    for f in normalize_streamlit_upload_files(files):
+        data = f.getvalue()
+        if len(data) == 0:
+            raise ValueError(
+                f"{f.name}: 文件为空（0 字节）。"
+                "若上传列表显示 0.0MB，说明浏览器未传回内容，请重新选择文件。"
+            )
+        pairs.append((f.name, data))
+    return pairs
 
 
 def _is_rules_workbook(path: Path) -> bool:

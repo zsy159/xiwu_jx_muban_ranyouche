@@ -44,12 +44,15 @@ def load_au_policy_by_vin(
         if not candidate_path:
             continue
         try:
-            loader = WorkbookLoader(Path(candidate_path))
+            path = Path(candidate_path)
+            if not path.is_file():
+                continue
+            loader = WorkbookLoader(path)
             golden_o = loader.read_sheet_columns(
                 perf_sheet, {"O": "O"}, label="au policy"
             )
             break
-        except ValueError:
+        except (ValueError, FileNotFoundError, OSError):
             continue
     if golden_o is None:
         return {}

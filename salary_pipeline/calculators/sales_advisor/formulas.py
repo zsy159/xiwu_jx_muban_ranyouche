@@ -11,7 +11,11 @@ from salary_pipeline.calculators.sales_advisor.types import (
     AdvisorPerformanceResult,
     HubColumnFormula,
 )
-from salary_pipeline.data_ingestion.data_loader import WorkbookLoader, normalize_name
+from salary_pipeline.data_ingestion.data_loader import (
+    WorkbookLoader,
+    lookup_combined_completion_rate,
+    normalize_name,
+)
 from salary_pipeline.ops.basic import sumif_by_key
 
 HUB_SHEET = "提成汇总"
@@ -84,7 +88,12 @@ def resolve_multiplier(
         if val is not None:
             return _num(val)
         return person.sales_completion_rate
-    if ref.startswith("BA") or ref[0].isalpha():
+    if ref.startswith("BA"):
+        rate = lookup_combined_completion_rate(loader, person.name)
+        if rate is not None:
+            return rate
+        return 1.0
+    if ref[0].isalpha():
         val = _read_hub_cell(loader, ref, excel_row=excel_row, person=person)
         if val is not None:
             return _num(val)

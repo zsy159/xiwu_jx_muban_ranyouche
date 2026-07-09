@@ -1,0 +1,329 @@
+# 财务可计算填写模板 — 工作簿结构（仅文档/生成脚本/试算脚本用，不接入 ingestion / month.yaml）
+#
+# 设计：
+#   · 销售明细 = VIN 原子列（财务手填；本阶段试算脚本不自动向上汇总）
+#   · 销售人员 = 人级合计（财务手填；试算脚本用这些列驱动 HubRuleEngine → Hub W–AI）
+#   · 生产流水线仍读 data/raw/<月>/uploads/*.xlsx
+#
+# 生成：python scripts/generate_finance_computable_template.py --month 2026-05
+# 试算：python scripts/trial_finance_computable_hub.py --input docs/templates/销售账套-财务可计算-2026-05.xlsx
+
+workbook_name_pattern: "销售账套-财务可计算-{month}.xlsx"
+example_month: "2026-05"
+
+readme_sheet:
+  name: README
+  title: 销售账套财务可计算模板 — 填账规则
+
+# ---------------------------------------------------------------------------
+# 销售人员：Hub 直接消费的人级输入（对齐 sales_advisor.yaml / HubRuleEngine）
+# 试算脚本读本表；禁止用金标准数值 bootstrap。
+# ---------------------------------------------------------------------------
+person_sheet:
+  name: 销售人员
+  # row1=分组 row2=列名 row3=注释 row4+=数据
+  header_row: 2
+  comment_row: 3
+  data_start_row: 4
+  note: 每人一行；绩效合计与完成率由财务手填，试算不从销售明细自动 rollup
+  columns:
+    # --- 行键 ---
+    - id: store
+      label: 店别
+      group: keys
+      hub_use: template_selector（store_ba_shops）
+      required: true
+    - id: role
+      label: 职务
+      group: keys
+      hub_use: match 销售顾问/主管/助理
+      required: true
+      default: 销售顾问
+    - id: name
+      label: 姓名
+      group: keys
+      hub_use: perf_name_column=P 汇总键
+      required: true
+
+    # --- 完成率乘数 ---
+    - id: sales_completion_rate
+      label: 销量完成率
+      group: multipliers
+      hub_use: Hub H；W(个人块)/Y/Z 乘数
+      value_type: number
+      note: 对应 Hub 销量完成率；门店块整车用合并完成率
+    - id: store_completion_rate
+      label: 合并完成率
+      group: multipliers
+      hub_use: store_ba 模板整车 W × BA
+      value_type: number
+      note: 来源通常为销售任务及完成率!AG；本表手填，试算优先读本列
+    - id: insurance_add_const
+      label: 保险绩效追加常数
+      group: multipliers
+      hub_use: insurance_add 模板 Z += 常数（如韩柏成 600）
+      value_type: number
+      default: 0
+
+    # --- 绩效整理表人级合计 → Hub W–AI ---
+    - id: perf_ag_sum
+      label: 整车绩效合计
+      group: hub_inputs
+      perf_col: AG
+      hub_column: 整车绩效
+      hub_letter: W
+      multiplier: template
+      value_type: number
+      note: SUM(绩效整理表 AG)；再 ×H 或 ×BA
+    - id: perf_ah_sum
+      label: 权限结余合计
+      group: hub_inputs
+      perf_col: AH
+      hub_column: 权限结余绩效
+      hub_letter: X
+      multiplier: none
+      value_type: number
+    - id: perf_ai_sum
+      label: 加装绩效合计
+      group: hub_inputs
+      perf_col: AI
+      hub_column: 加装绩效
+      hub_letter: Y
+      multiplier: H
+      value_type: number
+    - id: perf_aj_sum
+      label: 保险绩效合计
+      group: hub_inputs
+      perf_col: AJ
+      hub_column: 保险绩效
+      hub_letter: Z
+      multiplier: H
+      value_type: number
+    - id: perf_ak_sum
+      label: 金融绩效合计
+      group: hub_inputs
+      perf_col: AK
+      hub_column: 金融绩效
+      hub_letter: AA
+      multiplier: none
+      value_type: number
+    - id: perf_am_sum
+      label: 爱车宝绩效合计
+      group: hub_inputs
+      perf_col: AM
+      hub_column: 爱车宝绩效
+      hub_letter: AB
+      multiplier: none
+      value_type: number
+    - id: perf_an_sum
+      label: 上户绩效分项一
+      group: hub_inputs
+      perf_col: AN
+      hub_column: 上户绩效
+      hub_letter: AC
+      multiplier: none
+      value_type: number
+      note: Hub AC = AN + AS
+    - id: perf_as_sum
+      label: 上户绩效分项二
+      group: hub_inputs
+      perf_col: AS
+      hub_column: 上户绩效
+      hub_letter: AC
+      multiplier: none
+      value_type: number
+      note: 置换服务合计；与 AN 相加进 AC
+    - id: perf_al_sum
+      label: 盈利产品合计
+      group: hub_inputs
+      perf_col: AL
+      hub_column: 盈利产品绩效
+      hub_letter: AD
+      multiplier: none
+      value_type: number
+    - id: perf_at_sum
+      label: 延保提成合计
+      group: hub_inputs
+      perf_col: AT
+      hub_column: 延保提成
+      hub_letter: AE
+      multiplier: none
+      value_type: number
+    - id: perf_aq_sum
+      label: 特殊车型合计
+      group: hub_inputs
+      perf_col: AQ
+      hub_column: 特殊车型+指定车型
+      hub_letter: AF
+      multiplier: none
+      value_type: number
+    - id: perf_ao_sum
+      label: 座位险合计
+      group: hub_inputs
+      perf_col: AO
+      hub_column: 座位险提成
+      hub_letter: AG
+      multiplier: none
+      value_type: number
+    - id: perf_ar_sum
+      label: 二手车合计
+      group: hub_inputs
+      perf_col: AR
+      hub_column: 二手车提成
+      hub_letter: AH
+      multiplier: none
+      value_type: number
+    - id: perf_ap_sum
+      label: 玻碎险合计
+      group: hub_inputs
+      perf_col: AP
+      hub_column: 玻碎险提成
+      hub_letter: AI
+      multiplier: none
+      value_type: number
+
+person_groups:
+  - id: keys
+    label: 行键
+  - id: multipliers
+    label: 完成率乘数
+  - id: hub_inputs
+    label: 绩效合计（Hub 输入）
+
+# ---------------------------------------------------------------------------
+# 销售明细：VIN 原子列（财务手填；最终喂入绩效整理表再汇总到上表）
+# ---------------------------------------------------------------------------
+vin_sheet:
+  name: 销售明细
+  header_rows: 3   # row1 group, row2 label, row3 comment
+  data_start_row: 4
+  note: 一行一 VIN；本阶段试算不自动汇总到销售人员
+  # 列清单引用 canonical_column_registry + frontline extras；筛选见生成脚本
+  use_frontline_closure: true
+  # 额外强调：AG→AI 链必需原子列（与闭包筛选叠加）
+  emphasized_ids:
+    - vin
+    - order_no
+    - advisor
+    - units
+    - department
+    - vehicle_type
+    - channel
+    - order_total
+    - decoration_floor
+    - insurance_commission
+    - seat_insurance_perf
+    - glass_insurance_perf
+    - mortgage_commission
+    - mortgage_extra_reward
+    - profit_product_reward
+    - mortgage_income
+    - decoration_cost
+    - registration_perf
+    - aicar_commission
+    - trade_in_service
+    - used_car_trade
+    - key_account_commission
+    - warranty_income
+    - oversell_amount
+
+# ---------------------------------------------------------------------------
+# 提成依据参数（lookup / 任务；不接 ingestion）
+# ---------------------------------------------------------------------------
+commission_basis_sheets:
+  label: 提成依据参数
+  sheets:
+    - name: 提成依据
+      source_sheet: 销售提成标准
+      source_workbook: 提成依据
+      header_row: 1
+      note: C×D×E → F 单台标准；AG/AQ lookup
+    - name: 比对表
+      source_sheet: 比对表
+      header_row: 1
+      note: 部门/车种 → 指标汇总；AG/AH 闭包
+    - name: 销售任务及完成率
+      source_sheet: 销售任务及完成率
+      header_row: 1
+      note: Hub F/G/H/I；顾问 BA=AG 列合并完成率
+
+# ---------------------------------------------------------------------------
+# 其他岗位：表头占位（本阶段不算）
+# ---------------------------------------------------------------------------
+role_placeholder_sheets:
+  label: 岗位直引（表头占位）
+  sheets:
+    - name: 经理
+      source_sheet: 直营店经理提成 (财务)
+      header_row: 1
+      role_family: 直营店经理
+      hub_columns: [整车完成考核]
+      note: 占位；本阶段试算跳过
+    - name: 邀约专员
+      source_sheet: 邀约专员提成
+      header_row: 1
+      role_family: 邀约专员
+      hub_columns: [整车绩效, 整车完成考核]
+      note: 占位
+    - name: 客服专员
+      source_sheet: 客户部提成
+      header_row: 1
+      role_family: 客户专员
+      hub_columns: [整车绩效, 权限结余绩效, 加装绩效]
+      note: 占位
+    - name: 按揭专员
+      source_sheet: 按揭绩效
+      header_row: 2
+      header_template_rows: 3
+      role_family: 按揭内勤
+      hub_columns: [加装绩效]
+      note: 占位
+    - name: 新媒体
+      source_sheet: 新媒体
+      header_row: 1
+      role_family: 新媒体
+      hub_columns: [整车绩效]
+      note: 占位
+    - name: 招聘
+      source_sheet: 招聘
+      header_row: 1
+      role_family: 招聘
+      hub_columns: [保险绩效]
+      note: 占位
+
+exception_sheet:
+  name: 例外登记表
+  columns:
+    - {id: store, label: 店别}
+    - {id: role, label: 职务}
+    - {id: name, label: 姓名}
+    - {id: column, label: 列名}
+    - {id: system_value, label: 系统值}
+    - {id: confirmed_value, label: 确认值}
+    - {id: delta, label: 差额}
+    - {id: reason, label: 原因}
+    - {id: approver, label: 审批人}
+
+# Hub 本阶段产出列（试算预览）
+trial_hub_columns:
+  - 整车绩效
+  - 权限结余绩效
+  - 加装绩效
+  - 保险绩效
+  - 金融绩效
+  - 爱车宝绩效
+  - 上户绩效
+  - 盈利产品绩效
+  - 延保提成
+  - 特殊车型+指定车型
+  - 座位险提成
+  - 二手车提成
+  - 玻碎险提成
+
+deferred:
+  - Hub F–P 指标列全量（本阶段可不填；完成率在销售人员手填）
+  - VIN→绩效整理表闭包自动计算（AG/AH/AI…）
+  - VIN 自动 rollup → 销售人员
+  - 发薪表 XW / 直营店 / CS SUMIF
+  - 非一线 / 经理 / 邀约 / 客服 / 按揭 / 新媒体 / 招聘 overlay
+  - 调整列（综合表 / 月度活动 / 超期 AU 等）

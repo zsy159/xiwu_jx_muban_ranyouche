@@ -27,17 +27,19 @@ class TestSkeletonFilter(unittest.TestCase):
                 f"{name} must stay in skeleton for store-block SUM(G*:G*)",
             )
 
-    def test_comparable_still_excludes_blank_serial(self) -> None:
+    def test_comparable_includes_blank_serial_hub_aliases(self) -> None:
         frame = __import__("pandas").DataFrame(
             [
                 {"序号": 1, "姓名": "张三", "职务": "销售顾问"},
                 {"序号": None, "姓名": "余才万2", "职务": "区域顾问"},
+                {"序号": None, "姓名": "0", "职务": "小计"},
             ]
         )
         comparable = filter_comparable_rows(frame)
         skeleton = filter_skeleton_rows(frame)
-        self.assertEqual(len(comparable), 1)
+        self.assertEqual(len(comparable), 2)
         self.assertEqual(len(skeleton), 2)
+        self.assertIn("余才万2", comparable["姓名"].tolist())
 
 
 if __name__ == "__main__":

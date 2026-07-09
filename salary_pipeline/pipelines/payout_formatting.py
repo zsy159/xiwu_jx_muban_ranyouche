@@ -14,6 +14,7 @@ from salary_pipeline.data_ingestion.data_loader import resolve_computed_payout_r
 from salary_pipeline.paths import resolve_project_path
 from salary_pipeline.pipelines.commission_summary_formatting import (
     HighlightStats,
+    parity_highlight_mode,
     resolve_highlight_golden_path,
 )
 from salary_pipeline.pipelines.xw_payout_formula_engine import PAYOUT_CHANNEL_COLUMN_MAPS
@@ -32,10 +33,15 @@ PAYOUT_PARITY_KEYS = {
     "cs": "cs_parity",
 }
 
-# Computed payout export: title row 1, legend row 2, header row 3, data row 4+.
-PAYOUT_LEGEND_INSERT_ROW = 2
-PAYOUT_COMPUTED_HEADER_ROW = 3
-PAYOUT_COMPUTED_DATA_START_ROW = 4
+from salary_pipeline.pipelines.payout_column_sources import (
+    PAYOUT_DATA_START_ROW,
+    PAYOUT_HEADER_ROW,
+    PAYOUT_SOURCE_ROW,
+)
+
+PAYOUT_LEGEND_INSERT_ROW = PAYOUT_SOURCE_ROW
+PAYOUT_COMPUTED_HEADER_ROW = PAYOUT_HEADER_ROW
+PAYOUT_COMPUTED_DATA_START_ROW = PAYOUT_DATA_START_ROW
 
 # Golden payout sheet: header row 2, data row 3+.
 PAYOUT_GOLDEN_HEADER_ROW = 2
@@ -154,23 +160,26 @@ def apply_payout_highlighting(
         data_start_row=highlight_data_start,
     )
 
-    letter_by_column = {name: letter for letter, name in column_map.items()}
-    static_cells = collect_topology_static_fill_cells(
-        golden_workbook_path=golden,
-        sheet_name=sheet,
-        header_row=PAYOUT_GOLDEN_HEADER_ROW,
-        data_start_row=golden_data_start,
-        data_columns=frozenset(compare_columns),
-        letter_by_column=letter_by_column,
-    )
-    deferred_count = highlight_commission_summary_deferred_cells(
-        computed_path,
-        sheet,
-        {},
-        static_cells=static_cells,
-        header_row=highlight_header_row,
-        data_start_row=highlight_data_start,
-    )
+    deferred_count = 0
+    hub_parity_cfg = month_config.get("parity", {})
+    if parity_highlight_mode(hub_parity_cfg) == "full":
+        letter_by_column = {name: letter for letter, name in column_map.items()}
+        static_cells = collect_topology_static_fill_cells(
+            golden_workbook_path=golden,
+            sheet_name=sheet,
+            header_row=PAYOUT_GOLDEN_HEADER_ROW,
+            data_start_row=golden_data_start,
+            data_columns=frozenset(compare_columns),
+            letter_by_column=letter_by_column,
+        )
+        deferred_count = highlight_commission_summary_deferred_cells(
+            computed_path,
+            sheet,
+            {},
+            static_cells=static_cells,
+            header_row=highlight_header_row,
+            data_start_row=highlight_data_start,
+        )
 
     stats = HighlightStats(
         mismatches=mismatch_count,

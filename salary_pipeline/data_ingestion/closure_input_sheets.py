@@ -49,7 +49,7 @@ def _load_sheet(
 
 
 def load_comparison_table_frame(loader: WorkbookLoader) -> pd.DataFrame:
-    return _load_sheet(loader, COMPARISON_SHEET, {"A": "A", "B": "B"})
+    return _load_sheet(loader, COMPARISON_SHEET, {"A": "A", "B": "B", "D": "D", "E": "E"})
 
 
 def load_commission_standard_frame(loader: WorkbookLoader) -> pd.DataFrame:
@@ -64,9 +64,10 @@ def load_registration_commission_frame(loader: WorkbookLoader) -> pd.DataFrame:
     frame = _load_sheet(
         loader,
         REGISTRATION_COMMISSION_SHEET,
-        {"B": "B", "H": "H"},
+        {"B": "B", "C": "C", "H": "H"},
     )
     frame["H"] = pd.to_numeric(frame["H"], errors="coerce")
+    frame["C"] = pd.to_numeric(frame["C"], errors="coerce")
     return frame
 
 
@@ -74,9 +75,10 @@ def load_car_insurance_product_frame(loader: WorkbookLoader) -> pd.DataFrame:
     frame = _load_sheet(
         loader,
         CAR_INSURANCE_PRODUCT_SHEET,
-        {"F": "F", "BA": "BA"},
+        {"F": "F", "K": "K", "BA": "BA"},
     )
     frame["BA"] = pd.to_numeric(frame["BA"], errors="coerce")
+    frame["K"] = pd.to_numeric(frame["K"], errors="coerce")
     return frame
 
 

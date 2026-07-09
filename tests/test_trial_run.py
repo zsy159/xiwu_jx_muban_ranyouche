@@ -12,6 +12,7 @@ from salary_pipeline.ingestion_upload.topology import (
     topology_is_current,
     topology_source_fingerprint_path,
 )
+from salary_pipeline.ingestion_upload.month_config import build_month_config_dict
 from salary_pipeline.ingestion_upload.trial_run import (
     bootstrap_staging_cache_from_formal,
     inspect_trial_cache,
@@ -45,6 +46,55 @@ def _trial_month_config(tmp: Path, month_id: str = "2026-05") -> dict:
 
 
 class TrialCacheSelectionTests(unittest.TestCase):
+    def test_build_month_config_dict_never_uses_placeholder(self) -> None:
+        cfg = build_month_config_dict(
+            "2099-08",
+            sales_workbook="output/2099-08/.staging/销售账套-合并-2099-08.xlsx",
+            sales_topology="data/topology/2099-08/topo.json",
+            staging=True,
+        )
+        dumped = __import__("json").dumps(cfg, ensure_ascii=False)
+        self.assertNotIn("placeholder.xlsx", dumped)
+        self.assertEqual(
+            cfg["workbooks"]["sales"],
+            "output/2099-08/.staging/销售账套-合并-2099-08.xlsx",
+        )
+
+    def test_performance_sheet_builder_uses_trial_month_config(self) -> None:
+        """Builder must not read placeholder paths from corrupted month.yaml."""
+        from salary_pipeline.data_ingestion.data_loader import WorkbookLoader
+        from salary_pipeline.pipelines.performance_sheet_builder import (
+            PerformanceSheetBuilder,
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            sales = tmp / "sales.xlsx"
+            sales.write_bytes(b"not-a-real-xlsx")
+            topo = tmp / "sales.topology.json"
+            topo.write_text("{}", encoding="utf-8")
+            placeholder = tmp / "output/2025-05/.staging/placeholder.xlsx"
+            trial_cfg = {
+                "month": "2025-05",
+                "workbooks": {"sales": str(sales)},
+                "topology": {"sales": str(topo)},
+                "parity": {"golden_workbook": str(placeholder)},
+            }
+            builder = PerformanceSheetBuilder(
+                WorkbookLoader(sales),
+                month_config=trial_cfg,
+                billing_month="2025-05",
+            )
+            self.assertEqual(
+                builder._topology_path.resolve(),
+                topo.resolve(),
+            )
+            if builder._policy_workbook_path is not None:
+                self.assertNotIn(
+                    "placeholder.xlsx",
+                    str(builder._policy_workbook_path),
+                )
+
     def test_inspect_staging_cache_hit(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)

@@ -7,11 +7,30 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
-from salary_pipeline.paths import CONFIG_DIR, PROJECT_ROOT, resolve_project_path
-from salary_pipeline.pipelines.commission_summary import load_month_config
+from salary_pipeline.observability.loaders import (
+    load_month_config_for,
+    load_months_registry,
+    register_month,
+)
+from salary_pipeline.paths import (
+    CONFIG_DIR,
+    PROJECT_ROOT,
+    output_month_dir,
+    raw_month_dir,
+    resolve_project_path,
+)
 from salary_pipeline.modules.performance_sheet_module import PerformanceSheetModule
-from salary_pipeline.pipelines.performance_sheet_export import export_computed_performance_sheet
+from salary_pipeline.pipelines.performance_sheet_export import (
+    export_computed_performance_sheet,
+    prepare_export_frame,
+    resolve_export_column_spec,
+)
+from salary_pipeline.pipelines.performance_sheet_formatting import (
+    apply_performance_sheet_highlighting,
+    resolve_perf_golden_path,
+)
 from salary_pipeline.pipelines.run_cache import (
     cache_is_valid,
     compute_input_fingerprint,
@@ -47,6 +66,53 @@ from salary_pipeline.calculators.sales_advisor.registry import (
 )
 
 
+def _default_month() -> str:
+    registry = load_months_registry()
+    return str(registry.get("default_month", "2026-05"))
+
+
+def _month_from_args(args: argparse.Namespace) -> str:
+    return getattr(args, "month", None) or _default_month()
+
+
+def _resolve_month_config(month_id: str) -> dict[str, Any]:
+    registry = load_months_registry()
+    known = set(registry.get("months", {}))
+    if month_id not in known:
+        registered = ", ".join(sorted(known)) or "(none)"
+        raise SystemExit(
+            f"Unknown month '{month_id}'. Registered: {registered}. "
+            f"Onboard with: python main.py onboard-month --month {month_id} ..."
+        )
+    return load_month_config_for(month_id)
+
+
+def _config_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    return _resolve_month_config(_month_from_args(args))
+
+
+def _has_golden_workbook(config: dict[str, Any], *, channel: str | None = None) -> bool:
+    if channel:
+        payout_cfg = config.get("payout", {}).get(channel, {})
+        golden = payout_cfg.get("golden_workbook")
+    else:
+        golden = config.get("parity", {}).get("golden_workbook")
+    if golden is None:
+        return False
+    if isinstance(golden, str) and not golden.strip():
+        return False
+    return True
+
+
+def _add_month_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--month",
+        metavar="YYYY-MM",
+        default=None,
+        help=f"账期（默认 months_registry default_month={_default_month()}）",
+    )
+
+
 def setup_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
@@ -63,8 +129,134 @@ def _report_dir(config: dict, args: argparse.Namespace) -> Path:
     )
 
 
+def _relative_project_path(path: Path) -> str:
+    resolved = path.resolve()
+    root = PROJECT_ROOT.resolve()
+    try:
+        return str(resolved.relative_to(root))
+    except ValueError:
+        return str(resolved)
+
+
+def cmd_onboard_month(args: argparse.Namespace) -> int:
+    month_id = args.month
+    if args.extract_topology and args.inherit_topology:
+        print("[onboard-month] 不能同时使用 --extract-topology 与 --inherit-topology")
+        return 1
+
+    sales_path = resolve_project_path(args.sales)
+    if not sales_path.exists():
+        print(f"[onboard-month] 销售账套不存在: {sales_path}")
+        return 1
+    sales_rel = _relative_project_path(sales_path)
+
+    rules_rel: str | None = None
+    if args.rules:
+        rules_path = resolve_project_path(args.rules)
+        if not rules_path.exists():
+            print(f"[onboard-month] 提成依据不存在: {rules_path}")
+            return 1
+        rules_rel = _relative_project_path(rules_path)
+
+    sheet_sources_rel: str | None = None
+    if args.sheet_sources:
+        sheet_sources_path = resolve_project_path(args.sheet_sources)
+        if not sheet_sources_path.exists():
+            print(f"[onboard-month] sheet_sources 不存在: {sheet_sources_path}")
+            return 1
+        sheet_sources_rel = _relative_project_path(sheet_sources_path)
+
+    from salary_pipeline.ingestion_upload.month_config import write_month_config
+
+    if args.inherit_topology:
+        inherit_month = args.inherit_topology
+        try:
+            inherit_cfg = load_month_config_for(inherit_month)
+        except (FileNotFoundError, OSError) as exc:
+            print(f"[onboard-month] 无法加载继承月份配置 {inherit_month}: {exc}")
+            return 1
+
+        topo = inherit_cfg.get("topology", {})
+        sales_topo = topo.get("sales")
+        rules_topo = topo.get("rules")
+        aftersales_topo = topo.get("aftersales")
+        for name, rel in (
+            ("sales", sales_topo),
+            ("rules", rules_topo),
+            ("aftersales", aftersales_topo),
+        ):
+            if not rel:
+                print(f"[onboard-month] 继承配置缺少 topology.{name}")
+                return 1
+            if not resolve_project_path(rel).exists():
+                print(f"[onboard-month] 拓扑文件不存在: {rel}")
+                return 1
+
+        config_path = write_month_config(
+            month_id,
+            sales_workbook=sales_rel,
+            rules_workbook=rules_rel,
+            sales_topology=sales_topo,
+            rules_topology=rules_topo,
+            aftersales_topology=aftersales_topo,
+            sheet_sources_file=sheet_sources_rel,
+            no_golden=True,
+        )
+        print(f"[onboard-month] 继承 {inherit_month} 拓扑（无金标准）")
+    elif args.extract_topology:
+        from salary_pipeline.ingestion_upload.topology import extract_sales_topology
+
+        topo_rel = str(extract_sales_topology(sales_path, month_id))
+        config_path = write_month_config(
+            month_id,
+            sales_workbook=sales_rel,
+            rules_workbook=rules_rel,
+            sales_topology=topo_rel,
+            rules_topology=topo_rel,
+            sheet_sources_file=sheet_sources_rel,
+        )
+        print(f"[onboard-month] 已提取销售拓扑: {topo_rel}")
+    else:
+        from salary_pipeline.ingestion_upload.default_rules import (
+            canonical_month_label,
+            resolve_existing_canonical_topology,
+        )
+
+        topo, topo_errors = resolve_existing_canonical_topology()
+        if topo_errors:
+            for err in topo_errors:
+                print(f"[onboard-month] {err}")
+            return 1
+
+        canonical_month, canonical_label = canonical_month_label()
+        config_path = write_month_config(
+            month_id,
+            sales_workbook=sales_rel,
+            rules_workbook=rules_rel,
+            sales_topology=topo["sales"],
+            rules_topology=topo["rules"],
+            aftersales_topology=topo["aftersales"],
+            sheet_sources_file=sheet_sources_rel,
+            no_golden=True,
+        )
+        print(
+            f"[onboard-month] 使用系统固化规则（{canonical_label}，无金标准）"
+        )
+
+    label = args.label or month_id
+    raw_dir = f"data/raw/{month_id}"
+    register_month(month_id, label, raw_dir, config=config_path.name)
+
+    output_month_dir(month_id).mkdir(parents=True, exist_ok=True)
+    (raw_month_dir(month_id) / "uploads").mkdir(parents=True, exist_ok=True)
+
+    print(f"[onboard-month] 已注册 {month_id} ({label})")
+    print(f"[onboard-month] 配置: {config_path}")
+    return 0
+
+
 def cmd_export_performance_sheet(args: argparse.Namespace) -> int:
-    config = load_month_config(CONFIG_DIR)
+    config = _config_from_args(args)
     ctx: dict = {"month_config": config}
     result = PerformanceSheetModule().run(ctx)
     frame = ctx.get("computed_perf_frame")
@@ -86,21 +278,41 @@ def cmd_export_performance_sheet(args: argparse.Namespace) -> int:
         "billing_month", ""
     )
     title = f"{month} 销售绩效整理表（系统生成）" if month else "系统生成-绩效整理表"
-    export_computed_performance_sheet(frame, output_path, title=title)
+    golden_path = resolve_perf_golden_path(config)
+    export_computed_performance_sheet(
+        frame, output_path, title=title, golden_path=golden_path
+    )
 
     meta = result.metadata
     print(f"[export-performance-sheet] 已导出: {output_path}")
     print(
         f"[export-performance-sheet] rows={meta.get('rows', len(frame))} "
-        f"cols={len(meta.get('implemented_columns', []))} 已实现列"
+        f"cols={len(prepare_export_frame(frame, column_spec=resolve_export_column_spec(golden_path)).columns)} "
+        f"(金标准表头对齐)"
     )
     if meta.get("implemented_columns"):
-        print(f"[export-performance-sheet] 列: {', '.join(meta['implemented_columns'])}")
+        print(
+            f"[export-performance-sheet] 已实现 {len(meta['implemented_columns'])} 列: "
+            f"{', '.join(meta['implemented_columns'])}"
+        )
+
+    if getattr(args, "reconcile", False):
+        if golden_path is None:
+            print("[export-performance-sheet] 无金标准，跳过对账高亮")
+        else:
+            stats = apply_performance_sheet_highlighting(
+                config, output_path, golden_path=golden_path, computed_frame=frame
+            )
+            print(
+                f"[export-performance-sheet] 对账高亮: "
+                f"差异={stats.mismatches} 手填标记={stats.manual_marked} "
+                f"待填列格={stats.unimplemented_marked}"
+            )
     return 0
 
 
 def cmd_compute(args: argparse.Namespace) -> int:
-    config = load_month_config(CONFIG_DIR)
+    config = _config_from_args(args)
     from_stage = args.from_stage
 
     if from_stage == "hub":
@@ -118,7 +330,7 @@ def cmd_compute(args: argparse.Namespace) -> int:
             )
             return 1
 
-    pipeline = SalesPipeline(CONFIG_DIR)
+    pipeline = SalesPipeline(CONFIG_DIR, month_config=config)
     result = pipeline.run(from_stage=from_stage, only=args.only)
     print(f"[compute] 提成汇总已生成: {result['output_path']}")
     print(f"[compute] shape={result['summary'].shape}")
@@ -126,8 +338,12 @@ def cmd_compute(args: argparse.Namespace) -> int:
         only_msg = f", only={args.only}" if args.only else ""
         print(f"[compute] 增量模式: from=hub{only_msg}")
     if args.reconcile:
+        if not _has_golden_workbook(config):
+            print("[compute] 本月无金标准，跳过对账")
+            return 0
         return cmd_reconcile(
             argparse.Namespace(
+                month=args.month,
                 computed=result["output_path"],
                 golden=args.golden,
                 sheet=args.sheet,
@@ -139,7 +355,10 @@ def cmd_compute(args: argparse.Namespace) -> int:
 
 
 def cmd_reconcile(args: argparse.Namespace) -> int:
-    config = load_month_config(CONFIG_DIR)
+    config = _config_from_args(args)
+    if not _has_golden_workbook(config):
+        print("[reconcile] 本月无金标准，跳过")
+        return 0
     parity_cfg = config.get("parity", {})
 
     golden_path = resolve_project_path(
@@ -229,7 +448,8 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
 
 
 def cmd_compute_aftersales(args: argparse.Namespace) -> int:
-    pipeline = AftersalesPipeline(CONFIG_DIR, store=args.store)
+    config = _config_from_args(args)
+    pipeline = AftersalesPipeline(CONFIG_DIR, store=args.store, month_config=config)
     result = pipeline.run()
     print(
         f"[compute-aftersales] {result['store']} 已生成: {result['output_path']}"
@@ -238,6 +458,7 @@ def cmd_compute_aftersales(args: argparse.Namespace) -> int:
     if args.reconcile:
         return cmd_reconcile_aftersales(
             argparse.Namespace(
+                month=args.month,
                 store=args.store,
                 computed=result["output_path"],
                 golden=args.golden,
@@ -250,7 +471,7 @@ def cmd_compute_aftersales(args: argparse.Namespace) -> int:
 
 
 def cmd_reconcile_aftersales(args: argparse.Namespace) -> int:
-    config = load_month_config(CONFIG_DIR)
+    config = _config_from_args(args)
     parity_cfg = config.get("aftersales_parity", {})
     store_cfg = config.get("aftersales", {}).get("stores", {}).get(args.store, {})
     engine_cfg = WUHOU_CONFIG if args.store == "wuhou" else AIRPORT_CONFIG
@@ -315,8 +536,9 @@ def _payout_channel_label(channel: str) -> str:
 
 
 def cmd_compute_payout(args: argparse.Namespace) -> int:
+    config = _config_from_args(args)
     channel = args.channel
-    pipeline = ChannelPayoutPipeline(channel, CONFIG_DIR)
+    pipeline = ChannelPayoutPipeline(channel, CONFIG_DIR, month_config=config)
     context: dict = {}
     if getattr(args, "golden_hub", False):
         logging.warning(
@@ -338,6 +560,7 @@ def cmd_compute_payout(args: argparse.Namespace) -> int:
     if args.reconcile:
         return cmd_reconcile_payout(
             argparse.Namespace(
+                month=args.month,
                 channel=channel,
                 computed=result["output_path"],
                 golden=args.golden,
@@ -351,7 +574,11 @@ def cmd_compute_payout(args: argparse.Namespace) -> int:
 
 def cmd_reconcile_payout(args: argparse.Namespace) -> int:
     channel = getattr(args, "channel", "xw")
-    config = load_month_config(CONFIG_DIR)
+    config = _config_from_args(args)
+    if not _has_golden_workbook(config, channel=channel):
+        label = _payout_channel_label(channel)
+        print(f"[reconcile-payout] {label} 本月无金标准，跳过")
+        return 0
     parity_key = PAYOUT_PARITY_KEYS.get(channel, "payout_parity")
     parity_cfg = config.get(parity_key, config.get("payout_parity", {}))
     payout_cfg = config.get("payout", {}).get(channel, config.get("payout", {}).get("xw", {}))
@@ -400,7 +627,8 @@ def cmd_reconcile_payout(args: argparse.Namespace) -> int:
 
 def cmd_compute_all(args: argparse.Namespace) -> int:
     """Hub → all payout channels end-to-end; optional reconcile at each stage."""
-    hub_pipeline = SalesPipeline(CONFIG_DIR)
+    config = _config_from_args(args)
+    hub_pipeline = SalesPipeline(CONFIG_DIR, month_config=config)
     hub_result = hub_pipeline.run()
     print(f"[compute-all] 提成汇总: {hub_result['output_path']}")
     print(f"[compute-all] hub shape={hub_result['summary'].shape}")
@@ -411,7 +639,7 @@ def cmd_compute_all(args: argparse.Namespace) -> int:
     }
     payout_results: dict[str, dict] = {}
     for channel in PAYOUT_CHANNELS:
-        pipeline = ChannelPayoutPipeline(channel, CONFIG_DIR)
+        pipeline = ChannelPayoutPipeline(channel, CONFIG_DIR, month_config=config)
         result = pipeline.run(context=hub_context)
         payout_results[channel] = result
         label = _payout_channel_label(channel)
@@ -424,30 +652,40 @@ def cmd_compute_all(args: argparse.Namespace) -> int:
     if not args.reconcile:
         return 0
 
-    exit_codes = [
-        cmd_reconcile(
-            argparse.Namespace(
-                computed=hub_result["output_path"],
-                golden=args.golden,
-                sheet=args.sheet,
-                report_dir=args.report_dir,
-                verbose=args.verbose,
-            )
-        )
-    ]
-    for channel in PAYOUT_CHANNELS:
+    exit_codes: list[int] = []
+    if _has_golden_workbook(config):
         exit_codes.append(
-            cmd_reconcile_payout(
+            cmd_reconcile(
                 argparse.Namespace(
-                    channel=channel,
-                    computed=payout_results[channel]["output_path"],
+                    month=args.month,
+                    computed=hub_result["output_path"],
                     golden=args.golden,
-                    sheet=None,
+                    sheet=args.sheet,
                     report_dir=args.report_dir,
                     verbose=args.verbose,
                 )
             )
         )
+    else:
+        print("[compute-all] 本月无金标准，跳过 Hub 对账")
+    for channel in PAYOUT_CHANNELS:
+        if _has_golden_workbook(config, channel=channel):
+            exit_codes.append(
+                cmd_reconcile_payout(
+                    argparse.Namespace(
+                        month=args.month,
+                        channel=channel,
+                        computed=payout_results[channel]["output_path"],
+                        golden=args.golden,
+                        sheet=None,
+                        report_dir=args.report_dir,
+                        verbose=args.verbose,
+                    )
+                )
+            )
+        else:
+            label = _payout_channel_label(channel)
+            print(f"[compute-all] {label} 无金标准，跳过对账")
     return 0 if all(rc == 0 for rc in exit_codes) else 2
 
 
@@ -494,6 +732,7 @@ def build_parser() -> argparse.ArgumentParser:
     compute.add_argument("--golden", help="金标准工作簿路径")
     compute.add_argument("--sheet", default=None)
     compute.add_argument("--report-dir", default=None)
+    _add_month_arg(compute)
     compute.set_defaults(func=cmd_compute)
 
     reconcile = sub.add_parser(
@@ -504,6 +743,7 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--golden", help="金标准工作簿路径")
     reconcile.add_argument("--sheet", default=None)
     reconcile.add_argument("--report-dir", default=None)
+    _add_month_arg(reconcile)
     reconcile.set_defaults(func=cmd_reconcile)
 
     compute_as = sub.add_parser(
@@ -520,6 +760,7 @@ def build_parser() -> argparse.ArgumentParser:
     compute_as.add_argument("--golden", help="金标准工作簿路径")
     compute_as.add_argument("--sheet", default=None)
     compute_as.add_argument("--report-dir", default=None)
+    _add_month_arg(compute_as)
     compute_as.set_defaults(func=cmd_compute_aftersales)
 
     reconcile_as = sub.add_parser(
@@ -535,6 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile_as.add_argument("--golden", help="金标准工作簿路径")
     reconcile_as.add_argument("--sheet", default=None)
     reconcile_as.add_argument("--report-dir", default=None)
+    _add_month_arg(reconcile_as)
     reconcile_as.set_defaults(func=cmd_reconcile_aftersales)
 
     compute_po = sub.add_parser("compute-payout", help="运行渠道发薪表（XW / 直营店 / CS）")
@@ -553,6 +795,7 @@ def build_parser() -> argparse.ArgumentParser:
     compute_po.add_argument("--golden", help="金标准工作簿路径")
     compute_po.add_argument("--sheet", default=None)
     compute_po.add_argument("--report-dir", default=None)
+    _add_month_arg(compute_po)
     compute_po.set_defaults(func=cmd_compute_payout)
 
     reconcile_po = sub.add_parser(
@@ -569,6 +812,7 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile_po.add_argument("--golden", help="金标准工作簿路径")
     reconcile_po.add_argument("--sheet", default=None)
     reconcile_po.add_argument("--report-dir", default=None)
+    _add_month_arg(reconcile_po)
     reconcile_po.set_defaults(func=cmd_reconcile_payout)
 
     compute_all = sub.add_parser(
@@ -579,6 +823,7 @@ def build_parser() -> argparse.ArgumentParser:
     compute_all.add_argument("--golden", help="金标准工作簿路径")
     compute_all.add_argument("--sheet", default=None)
     compute_all.add_argument("--report-dir", default=None)
+    _add_month_arg(compute_all)
     compute_all.set_defaults(func=cmd_compute_all)
 
     export_perf = sub.add_parser(
@@ -589,7 +834,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         help="输出 xlsx 路径（默认 output/YYYY-MM/绩效整理表-系统生成.xlsx）",
     )
+    export_perf.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="导出后与金标准对账并高亮差异/手填格",
+    )
+    _add_month_arg(export_perf)
     export_perf.set_defaults(func=cmd_export_performance_sheet)
+
+    onboard = sub.add_parser(
+        "onboard-month",
+        help="注册新账期：生成 month-YYYY-MM.yaml 并写入 months_registry",
+    )
+    onboard.add_argument("--month", metavar="YYYY-MM", required=True, help="新账期")
+    onboard.add_argument("--sales", required=True, help="销售账套 xlsx 路径")
+    onboard.add_argument("--rules", help="提成依据 xlsx 路径")
+    onboard.add_argument("--sheet-sources", help="sheet_sources.json 路径")
+    onboard.add_argument("--label", help="注册表显示名称（默认与 month 相同）")
+    topo_group = onboard.add_mutually_exclusive_group(required=False)
+    topo_group.add_argument(
+        "--extract-topology",
+        action="store_true",
+        help="从 --sales 提取公式拓扑到 data/topology/<month>/（高级：重建样板）",
+    )
+    topo_group.add_argument(
+        "--inherit-topology",
+        metavar="YYYY-MM",
+        help="继承指定已注册月份的拓扑 JSON（高级；默认改用 repo 内 2026-05 固化规则）",
+    )
+    onboard.set_defaults(func=cmd_onboard_month)
 
     return parser
 

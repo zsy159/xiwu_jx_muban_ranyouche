@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
+
+from openpyxl import Workbook
 
 from salary_pipeline.paths import PROJECT_ROOT
 from salary_pipeline.validation.golden_perf_skips import (
@@ -22,6 +25,22 @@ class GoldenPerfSkipsTests(unittest.TestCase):
         self.assertTrue(is_golden_erwang_channel("直营店二网"))
         self.assertFalse(is_golden_erwang_channel("自有店"))
         self.assertFalse(is_golden_erwang_channel("分公司"))
+
+    def test_load_computed_ah_by_vin_returns_empty_for_minimal_sheet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stub.xlsx"
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "绩效整理表"
+            ws["A1"] = "title only"
+            wb.save(path)
+            self.assertEqual(load_computed_ah_by_vin(path), {})
+
+    def test_load_computed_ah_by_vin_missing_file(self) -> None:
+        self.assertEqual(
+            load_computed_ah_by_vin(Path("/nonexistent/绩效整理表-系统生成.xlsx")),
+            {},
+        )
 
     @unittest.skipUnless(GOLDEN.exists() and COMPUTED_PERF.exists(), "fixtures missing")
     def test_puxi_erwang_adjustment_matches_vin(self) -> None:

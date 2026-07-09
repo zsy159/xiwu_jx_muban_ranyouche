@@ -13,6 +13,8 @@ PAYOUT_COL = "AF"  # 发放金额 → hub 整车绩效 W
 
 
 def load_invite_specialist_frame(loader: WorkbookLoader) -> pd.DataFrame:
+    if not loader.has_sheet(INVITE_SHEET):
+        return pd.DataFrame(columns=[NAME_COL, PAYOUT_COL])
     frame = loader.read_sheet_columns(
         INVITE_SHEET,
         {NAME_COL: NAME_COL, PAYOUT_COL: PAYOUT_COL},

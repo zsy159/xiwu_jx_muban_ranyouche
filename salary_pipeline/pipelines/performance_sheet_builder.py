@@ -39,6 +39,18 @@ from salary_pipeline.calculators.performance_sheet.from_terminal import (
 from salary_pipeline.calculators.performance_sheet.from_vehicle_cost import (
     VEHICLE_COST_INDEX_MAP,
 )
+from salary_pipeline.calculators.performance_sheet.from_derived import (
+    DERIVED_PERF_COLUMNS,
+    compute_derived_columns,
+)
+from salary_pipeline.calculators.performance_sheet.from_income import (
+    INCOME_PERF_COLUMNS,
+    compute_income_columns,
+)
+from salary_pipeline.calculators.performance_sheet.from_order_context_export import (
+    ORDER_CONTEXT_EXPORT_COLUMNS,
+    compute_order_context_export_columns,
+)
 from salary_pipeline.calculators.performance_sheet.from_overdue_stock import (
     OVERDUE_STOCK_COLUMNS,
     compute_overdue_stock_columns,
@@ -46,8 +58,13 @@ from salary_pipeline.calculators.performance_sheet.from_overdue_stock import (
 from salary_pipeline.calculators.performance_sheet.from_warranty import (
     WARRANTY_PERF_COLUMNS,
 )
-from salary_pipeline.data_ingestion.data_loader import WorkbookLoader, load_month_config
+from salary_pipeline.data_ingestion.data_loader import (
+    WorkbookLoader,
+    load_month_config,
+    resolve_parity_golden_workbook,
+)
 from salary_pipeline.data_ingestion.performance_sheet_golden import (
+    PERF_SHEET,
     load_performance_order_skeleton,
 )
 from salary_pipeline.ops.basic import sumif_by_key
@@ -67,8 +84,19 @@ SLICE_6_EXTRA_COLUMNS = ("AT", "BC")
 SLICE_6_COLUMNS = SLICE_5_COLUMNS + SLICE_6_EXTRA_COLUMNS
 SLICE_7_EXTRA_COLUMNS = OVERDUE_STOCK_COLUMNS
 SLICE_7_COLUMNS = SLICE_6_COLUMNS + SLICE_7_EXTRA_COLUMNS
+SLICE_8_EXTRA_COLUMNS = (
+    ORDER_CONTEXT_EXPORT_COLUMNS + INCOME_PERF_COLUMNS + DERIVED_PERF_COLUMNS
+)
+# Preserve order, drop duplicates (AF also in INCOME; context cols overlap none)
+_seen: set[str] = set()
+SLICE_8_UNIQUE: list[str] = []
+for _col in SLICE_8_EXTRA_COLUMNS:
+    if _col not in _seen:
+        _seen.add(_col)
+        SLICE_8_UNIQUE.append(_col)
+SLICE_8_COLUMNS = SLICE_7_COLUMNS + tuple(SLICE_8_UNIQUE)
 ORDER_KEY_COLUMNS = ("O", "P", "K", "G")
-IMPLEMENTED_COLUMNS = ORDER_KEY_COLUMNS + SLICE_7_COLUMNS
+IMPLEMENTED_COLUMNS = ORDER_KEY_COLUMNS + SLICE_8_COLUMNS
 # Hub W–AI 值列已全部内化；金标准 xlsx 仅用于对账
 GOLDEN_OVERLAY_COLUMNS: tuple[str, ...] = ()
 
@@ -90,6 +118,7 @@ class PerformanceSheetBuilder:
     Slice 5: + closure columns AG/AH/AI/AM/AN/AS/AQ/AR for Hub W–AI.
     Slice 6: + AT (延保提成) / BC (终端返利).
     Slice 7: + E (库存天数) / AU (超期追加) → Hub「超期」列.
+    Slice 8: + order context A–AA, income AC–AF, derived AV/BE–BN.
     """
 
     def __init__(
@@ -98,8 +127,11 @@ class PerformanceSheetBuilder:
         config_dir: Path | None = None,
         *,
         billing_month: str | None = None,
+        month_config: dict[str, Any] | None = None,
     ) -> None:
         self.loader = loader
+        self._config_dir = config_dir or CONFIG_DIR
+        self._month_config = month_config
         self.config = load_performance_sheet_config(config_dir)
         self.billing_month = billing_month or self.config.get("order_skeleton", {}).get(
             "billing_month"
@@ -107,35 +139,45 @@ class PerformanceSheetBuilder:
         self._topology_path = self._resolve_topology_path()
         self._policy_workbook_path = self._resolve_policy_workbook_path()
 
-    def _resolve_policy_workbook_path(self) -> Path | None:
+    def _month_cfg(self) -> dict[str, Any] | None:
+        if self._month_config is not None:
+            return self._month_config
         try:
-            month_cfg = load_month_config()
-            rel = (month_cfg.get("parity") or {}).get("golden_workbook")
-            if rel:
-                return resolve_project_path(rel)
-        except (KeyError, TypeError, ValueError):
-            pass
-        return None
+            return load_month_config(self._config_dir)
+        except (OSError, TypeError, ValueError, yaml.YAMLError):
+            return None
+
+    def _resolve_policy_workbook_path(self) -> Path | None:
+        month_cfg = self._month_cfg()
+        if not month_cfg:
+            return None
+        return resolve_parity_golden_workbook(month_cfg, sheet_name=PERF_SHEET)
 
     def _resolve_topology_path(self) -> Path | None:
-        try:
-            month_cfg = load_month_config()
-            rel = (month_cfg.get("topology") or {}).get("sales")
-            if rel:
-                return resolve_project_path(rel)
-        except (KeyError, TypeError, ValueError):
-            pass
-        return None
+        month_cfg = self._month_cfg()
+        if not month_cfg:
+            return None
+        rel = (month_cfg.get("topology") or {}).get("sales")
+        if not rel:
+            return None
+        path = resolve_project_path(str(rel))
+        return path if path.is_file() else None
+
+    def build_slice_8(self) -> pd.DataFrame:
+        return self._build(
+            SLICE_8_COLUMNS,
+            skeleton_source="computed",
+        )
+
+    def build(self) -> pd.DataFrame:
+        """Production entry: computed order skeleton + Slices 1–8 value columns."""
+        return self.build_slice_8()
 
     def build_slice_7(self) -> pd.DataFrame:
         return self._build(
             SLICE_7_COLUMNS,
             skeleton_source="computed",
         )
-
-    def build(self) -> pd.DataFrame:
-        """Production entry: computed order skeleton + Slices 1–7 value columns."""
-        return self.build_slice_7()
 
     def build_slice_1(self) -> pd.DataFrame:
         return self._build(SLICE_1_COLUMNS)
@@ -217,6 +259,11 @@ class PerformanceSheetBuilder:
         )
         warranty_cols = tuple(c for c in target_columns if c in WARRANTY_PERF_COLUMNS)
         terminal_cols = tuple(c for c in target_columns if c in TERMINAL_PERF_COLUMNS)
+        order_context_cols = tuple(
+            c for c in target_columns if c in ORDER_CONTEXT_EXPORT_COLUMNS
+        )
+        income_cols = tuple(c for c in target_columns if c in INCOME_PERF_COLUMNS)
+        derived_cols = tuple(c for c in target_columns if c in DERIVED_PERF_COLUMNS)
         insurance = compute_insurance_columns(
             skeleton, self.loader, target_cols=insurance_cols
         )
@@ -266,6 +313,29 @@ class PerformanceSheetBuilder:
             for col in target_columns:
                 if col in part.columns:
                     out[col] = part[col].values
+
+        if order_context_cols:
+            order_ctx = compute_order_context_export_columns(
+                out, self.loader, target_cols=order_context_cols
+            )
+            for col in target_columns:
+                if col in order_ctx.columns:
+                    out[col] = order_ctx[col].values
+        if income_cols:
+            income = compute_income_columns(
+                out, self.loader, target_cols=income_cols
+            )
+            for col in target_columns:
+                if col in income.columns:
+                    out[col] = income[col].values
+
+        if derived_cols:
+            derived = compute_derived_columns(
+                out, self.loader, target_cols=derived_cols
+            )
+            for col in derived_cols:
+                if col in derived.columns:
+                    out[col] = derived[col].values
 
         out = self._apply_advisor_column_adjustments(out)
 
